@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { getServerSession } from "next-auth/next"
-import { authOptions } from "@/lib/auth"
+import { requireAdmin } from "@/lib/auth-server"
 import { prisma } from "@/lib/prisma"
 import { UserRole } from "@prisma/client"
 
@@ -9,7 +8,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await requireAdmin()
 
     if (!session || session.user.role !== "ADMIN") {
       return NextResponse.json(

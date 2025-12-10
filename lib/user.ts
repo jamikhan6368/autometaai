@@ -1,17 +1,16 @@
 import { prisma } from './prisma'
 import { CreditTransactionType } from '@prisma/client'
-import { getServerSession } from "next-auth/next"
-import { authOptions } from "@/lib/auth"
+import { getSession } from "@/lib/auth-server"
 
 export async function getCurrentUser() {
-  const session = await getServerSession(authOptions)
+  const session = await getSession()
   
-  if (!session?.user?.email) {
+  if (!session?.user?.id) {
     throw new Error('User not authenticated')
   }
 
   const user = await prisma.user.findUnique({
-    where: { email: session.user.email }
+    where: { id: session.user.id }
   })
 
   if (!user) {

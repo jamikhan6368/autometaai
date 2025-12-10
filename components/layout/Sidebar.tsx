@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useSession, signOut } from 'next-auth/react';
+import { useSession, signOut } from '@/lib/auth-client';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { HugeiconsIcon } from '@hugeicons/react';
@@ -118,7 +118,7 @@ const Sidebar = () => {
         <Button
           variant="outline"
           size="sm"
-          onClick={() => signOut({ callbackUrl: '/auth/signin' })}
+          onClick={() => signOut({ fetchOptions: { onSuccess: () => window.location.href = '/auth/signin' } })}
           className="w-full flex items-center justify-center py-2.5 bg-red-50 border-red-200 text-red-700 hover:bg-red-100 hover:border-red-300 transition-all duration-200 rounded-xl font-medium"
         >
           <HugeiconsIcon icon={Logout01Icon} size={16} strokeWidth={2} className="mr-2" />

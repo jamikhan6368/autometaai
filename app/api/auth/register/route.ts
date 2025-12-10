@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import bcrypt from "bcryptjs"
-import { prisma } from "@/lib/prisma"
+import { auth } from "@/lib/auth"
 
 export async function POST(request: NextRequest) {
   try {
@@ -13,44 +12,30 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Check if user already exists
-    const existingUser = await prisma.user.findUnique({
-      where: { email }
+    // Use Better Auth to create user
+    const result = await auth.api.signUpEmail({
+      body: {
+        email,
+        password,
+        name: name || undefined,
+      }
     })
 
-    if (existingUser) {
+    if (!result) {
       return NextResponse.json(
-        { error: "User already exists with this email" },
-        { status: 400 }
+        { error: "Failed to create user" },
+        { status: 500 }
       )
     }
 
-    // Hash password
-    const hashedPassword = await bcrypt.hash(password, 12)
-
-    // Create user with 0 credits (default)
-    const user = await prisma.user.create({
-      data: {
-        email,
-        password: hashedPassword,
-        name,
-        role: "USER"
-      }
-    })
-
     return NextResponse.json({
       message: "User created successfully",
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        credits: user.credits
-      }
+      user: result.user
     })
-  } catch (error) {
+  } catch (error: any) {
     console.error("Registration error:", error)
     return NextResponse.json(
-      { error: "Internal server error" },
+      { error: error.message || "Internal server error" },
       { status: 500 }
     )
   }

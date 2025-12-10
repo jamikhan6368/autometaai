@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { getSession } from '@/lib/auth-server';
 import { getApiKey } from '@/lib/getApiKey';
 import { deductCredits } from '@/lib/credits';
 import { prisma } from '@/lib/prisma';
@@ -8,14 +7,14 @@ import OpenAI from 'openai';
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session || !session.user?.email) {
+    const session = await getSession();
+    if (!session || !session.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     // Get user and check credits
     const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
+      where: { id: session.user.id },
       select: { id: true, credits: true }
     });
 

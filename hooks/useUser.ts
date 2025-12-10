@@ -1,4 +1,4 @@
-import { useSession } from 'next-auth/react';
+import { useSession } from '@/lib/auth-client';
 import { useEffect, useState } from 'react';
 
 interface User {
@@ -17,14 +17,14 @@ interface UseUserReturn {
 }
 
 export function useUser(): UseUserReturn {
-  const { data: session, status } = useSession();
+  const { data: session, isPending } = useSession();
   const [user, setUser] = useState<User | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (status === 'loading') return;
+    if (isPending) return;
 
-    if (status === 'unauthenticated') {
+    if (!session) {
       setUser(null);
       setError(null);
       return;
@@ -33,14 +33,14 @@ export function useUser(): UseUserReturn {
     if (session?.user) {
       setUser({
         id: session.user.id,
-        email: session.user.email || '',
+        email: session.user.email,
         name: session.user.name || undefined,
-        role: session.user.role || 'USER',
-        credits: session.user.credits || 0,
+        role: (session.user as any).role || 'USER',
+        credits: (session.user as any).credits || 0,
       });
       setError(null);
     }
-  }, [session, status]);
+  }, [session, isPending]);
 
   const updateCredits = (newCredits: number) => {
     if (user) {
@@ -53,7 +53,7 @@ export function useUser(): UseUserReturn {
 
   return {
     user,
-    loading: status === 'loading',
+    loading: isPending,
     error,
     updateCredits,
   };
