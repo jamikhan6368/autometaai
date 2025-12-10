@@ -32,7 +32,7 @@ const internationalPackages: CreditPackage[] = [
 ];
 
 export default function BuyCreditsPage() {
-  const { data: session, status } = useSession();
+  const { data: session, isPending } = useSession();
   const router = useRouter();
   const [location, setLocation] = useState<LocationType>('pakistan');
   const [selectedPackage, setSelectedPackage] = useState<CreditPackage | null>(null);
@@ -42,12 +42,12 @@ export default function BuyCreditsPage() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    if (status === 'loading') return;
+    if (isPending) return;
     if (!session) {
       router.push('/auth/signin');
       return;
     }
-  }, [session, status, router]);
+  }, [session, isPending, router]);
 
   const getCurrentPackages = () => {
     return location === 'pakistan' ? pakistanPackages : internationalPackages;
@@ -145,7 +145,7 @@ export default function BuyCreditsPage() {
     router.push(`/app/buy-credits/payment?${params.toString()}`);
   };
 
-  if (status === 'loading') {
+  if (isPending) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-50 to-white">
         <div className="animate-spin rounded-full h-32 w-32 border-b-4 border-blue-600"></div>

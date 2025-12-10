@@ -6,18 +6,18 @@ import { useRouter } from 'next/navigation';
 import PaymentRequestsStatus from '@/components/ui/PaymentRequestsStatus';
 
 export default function PaymentRequestsPage() {
-  const { data: session, status } = useSession();
+  const { data: session, isPending } = useSession();
   const router = useRouter();
 
   useEffect(() => {
-    if (status === 'loading') return;
+    if (isPending) return;
     if (!session) {
       router.push('/auth/signin');
       return;
     }
-  }, [session, status, router]);
+  }, [session, isPending, router]);
 
-  if (status === 'loading') {
+  if (isPending) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-white flex items-center justify-center">
         <div className="text-center">

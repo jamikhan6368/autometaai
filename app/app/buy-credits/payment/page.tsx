@@ -12,7 +12,7 @@ import Image from 'next/image';
 import { Button } from '@/components/ui/Button';
 
 function PaymentPageContent() {
-  const { data: session, status } = useSession();
+  const { data: session, isPending } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
   
@@ -29,7 +29,7 @@ function PaymentPageContent() {
   const [success, setSuccess] = useState('');
 
   useEffect(() => {
-    if (status === 'loading') return;
+    if (isPending) return;
     if (!session) {
       router.push('/auth/signin');
       return;
@@ -52,7 +52,7 @@ function PaymentPageContent() {
     setQrCode(qrCodeParam || '');
     setCurrency(currencyParam || 'PKR');
     setLocation(locationParam || 'pakistan');
-  }, [session, status, router, searchParams]);
+  }, [session, isPending, router, searchParams]);
 
   const handleScreenshotChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -127,7 +127,7 @@ function PaymentPageContent() {
     }
   };
 
-  if (status === 'loading') {
+  if (isPending) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>

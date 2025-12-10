@@ -10,11 +10,11 @@ export default function AdminLayout({
 }: {
   children: React.ReactNode
 }) {
-  const { data: session, status } = useSession()
+  const { data: session, isPending } = useSession()
   const router = useRouter()
 
   useEffect(() => {
-    if (status === "loading") return // Still loading
+    if (isPending) return // Still loading
 
     if (!session) {
       router.push("/auth/signin")
@@ -25,9 +25,9 @@ export default function AdminLayout({
       router.push("/app/describe")
       return
     }
-  }, [session, status, router])
+  }, [session, isPending, router])
 
-  if (status === "loading") {
+  if (isPending) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-lg">Loading...</div>
