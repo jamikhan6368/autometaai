@@ -24,12 +24,12 @@ Generated: ${timestamp.toLocaleString()}
   // Save to public/downloads directory
   const downloadsDir = join(process.cwd(), 'public', 'downloads', 'descriptions');
   await mkdir(downloadsDir, { recursive: true });
-  
+
   const fileName = `${filename.replace(/\.[^/.]+$/, '')}_${Date.now()}_description.txt`;
   const filePath = join(downloadsDir, fileName);
-  
+
   await writeFile(filePath, content, 'utf-8');
-  
+
   // Return public URL
   return `/downloads/descriptions/${fileName}`;
 }
@@ -59,12 +59,12 @@ ${escapeCSV(filename)},${escapeCSV(title)},${escapeCSV(keywords)},${escapeCSV(ca
   // Save to public/downloads directory
   const downloadsDir = join(process.cwd(), 'public', 'downloads', 'metadata');
   await mkdir(downloadsDir, { recursive: true });
-  
+
   const fileName = `${filename.replace(/\.[^/.]+$/, '')}_${Date.now()}_metadata.csv`;
   const filePath = join(downloadsDir, fileName);
-  
+
   await writeFile(filePath, content, 'utf-8');
-  
+
   // Return public URL
   return `/downloads/metadata/${fileName}`;
 }
@@ -115,12 +115,12 @@ ${highMotion}
   // Save to public/downloads directory
   const downloadsDir = join(process.cwd(), 'public', 'downloads', 'runway-prompts');
   await mkdir(downloadsDir, { recursive: true });
-  
+
   const fileName = `${filename.replace(/\.[^/.]+$/, '')}_${Date.now()}_runway.txt`;
   const filePath = join(downloadsDir, fileName);
-  
+
   await writeFile(filePath, content, 'utf-8');
-  
+
   // Return public URL
   return `/downloads/runway-prompts/${fileName}`;
 }
@@ -162,12 +162,12 @@ ${item.description}
   // Save to public/downloads directory
   const downloadsDir = join(process.cwd(), 'public', 'downloads', 'descriptions');
   await mkdir(downloadsDir, { recursive: true });
-  
+
   const fileName = `descriptions_batch_${timestamp.toISOString().split('T')[0]}_${timestamp.getTime()}.txt`;
   const filePath = join(downloadsDir, fileName);
-  
+
   await writeFile(filePath, content, 'utf-8');
-  
+
   // Return public URL
   return `/downloads/descriptions/${fileName}`;
 }
@@ -183,7 +183,7 @@ export async function generateBulkMetadataCSV(
     category: string;
   }>,
   timestamp: Date
-): Promise<string> {
+): Promise<string | null> {
   const escapeCSV = (str: string) => {
     if (str.includes(',') || str.includes('"') || str.includes('\n')) {
       return `"${str.replace(/"/g, '""')}"`;
@@ -199,17 +199,23 @@ export async function generateBulkMetadataCSV(
     )},${escapeCSV(item.category)}\n`;
   });
 
-  // Save to public/downloads directory
-  const downloadsDir = join(process.cwd(), 'public', 'downloads', 'metadata');
-  await mkdir(downloadsDir, { recursive: true });
-  
-  const fileName = `metadata_batch_${timestamp.toISOString().split('T')[0]}_${timestamp.getTime()}.csv`;
-  const filePath = join(downloadsDir, fileName);
-  
-  await writeFile(filePath, content, 'utf-8');
-  
-  // Return public URL
-  return `/downloads/metadata/${fileName}`;
+  try {
+    // Save to public/downloads directory (only works locally, not on serverless)
+    const downloadsDir = join(process.cwd(), 'public', 'downloads', 'metadata');
+    await mkdir(downloadsDir, { recursive: true });
+
+    const fileName = `metadata_batch_${timestamp.toISOString().split('T')[0]}_${timestamp.getTime()}.csv`;
+    const filePath = join(downloadsDir, fileName);
+
+    await writeFile(filePath, content, 'utf-8');
+
+    // Return public URL
+    return `/downloads/metadata/${fileName}`;
+  } catch {
+    // On serverless (Vercel), filesystem is read-only - return null
+    console.log('File system not available (serverless environment), skipping file generation');
+    return null;
+  }
 }
 
 /**
@@ -223,7 +229,7 @@ export async function generateBulkRunwayPromptsFile(
     highMotion?: string;
   }>,
   timestamp: Date
-): Promise<string> {
+): Promise<string | null> {
   let content = `Runway Prompts - Batch Processing
 ==================================
 
@@ -267,15 +273,21 @@ ${item.highMotion}
 
 `;
 
-  // Save to public/downloads directory
-  const downloadsDir = join(process.cwd(), 'public', 'downloads', 'runway-prompts');
-  await mkdir(downloadsDir, { recursive: true });
-  
-  const fileName = `runway_prompts_batch_${timestamp.toISOString().split('T')[0]}_${timestamp.getTime()}.txt`;
-  const filePath = join(downloadsDir, fileName);
-  
-  await writeFile(filePath, content, 'utf-8');
-  
-  // Return public URL
-  return `/downloads/runway-prompts/${fileName}`;
+  try {
+    // Save to public/downloads directory (only works locally, not on serverless)
+    const downloadsDir = join(process.cwd(), 'public', 'downloads', 'runway-prompts');
+    await mkdir(downloadsDir, { recursive: true });
+
+    const fileName = `runway_prompts_batch_${timestamp.toISOString().split('T')[0]}_${timestamp.getTime()}.txt`;
+    const filePath = join(downloadsDir, fileName);
+
+    await writeFile(filePath, content, 'utf-8');
+
+    // Return public URL
+    return `/downloads/runway-prompts/${fileName}`;
+  } catch {
+    // On serverless (Vercel), filesystem is read-only - return null
+    console.log('File system not available (serverless environment), skipping file generation');
+    return null;
+  }
 }

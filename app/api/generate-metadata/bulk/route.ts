@@ -172,7 +172,7 @@ Return JSON with: "title", "keywords", "category_id" (number).`;
           userId: session.user.id,
           type: 'metadata',
           itemCount: successCount,
-          fileUrl: batchFileUrl,
+          fileUrl: batchFileUrl || '',
         },
       });
 
@@ -181,7 +181,7 @@ Return JSON with: "title", "keywords", "category_id" (number).`;
         successCount,
         totalCount: images.length,
         remainingCredits: creditResult.newBalance,
-        batchFileUrl,
+        batchFileUrl: batchFileUrl || null,
       });
     }
 

@@ -28,19 +28,19 @@ export async function POST(request: NextRequest) {
       new Date()
     );
 
-    // Save batch operation to history
+    // Save batch operation to history (fileUrl may be null on serverless)
     await prisma.batchOperation.create({
       data: {
         userId: session.user.id,
         type: 'runway',
         itemCount: results.length,
-        fileUrl: batchFileUrl,
+        fileUrl: batchFileUrl || '',
       },
     });
 
     return NextResponse.json({
       success: true,
-      batchFileUrl,
+      batchFileUrl: batchFileUrl || null,
     });
   } catch (error: unknown) {
     console.error('Bulk runway prompt error:', error);
