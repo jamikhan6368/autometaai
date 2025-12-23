@@ -1,7 +1,8 @@
 import { CreditManager, InsufficientCreditsError, CreditTransactionResult } from './credit-manager';
-import { getSetting } from './settings';
+import { getApiKey } from './getApiKey';
 import { prisma } from './prisma';
 import { CreditTransactionType } from '@prisma/client';
+import { describeImageWithGemini } from './gemini-service';
 
 /**
  * Interface for image processing results
@@ -53,6 +54,7 @@ export interface ProcessingConfig {
   maxFileSize: number;
   allowedMimeTypes: string[];
   apiTimeout: number;
+  provider: 'ideogram' | 'gemini';
 }
 
 /**
@@ -72,13 +74,27 @@ export class ImageDescriptionProcessor {
     stopOnInsufficientCredits: true,
     maxFileSize: 10 * 1024 * 1024, // 10MB
     allowedMimeTypes: ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'],
-    apiTimeout: 15000 // 15 seconds
+    apiTimeout: 15000, // 15 seconds
+    provider: 'ideogram'
   };
+
+  // Credit cost per image (Description + Metadata + Runway Prompt bundle)
+  private static readonly CREDITS_PER_IMAGE_GEMINI = 3;
+  private static readonly CREDITS_PER_IMAGE_IDEOGRAM = 20;
 
   constructor(userId: string, config?: Partial<ProcessingConfig>) {
     this.userId = userId;
     this.creditManager = new CreditManager(userId);
     this.config = { ...ImageDescriptionProcessor.DEFAULT_CONFIG, ...config };
+  }
+
+  /**
+   * Get the credit cost per image based on the provider
+   */
+  private getCreditsPerImage(): number {
+    return this.config.provider === 'gemini'
+      ? ImageDescriptionProcessor.CREDITS_PER_IMAGE_GEMINI
+      : ImageDescriptionProcessor.CREDITS_PER_IMAGE_IDEOGRAM;
   }
 
   /**
@@ -139,12 +155,13 @@ export class ImageDescriptionProcessor {
           remainingCredits: baseResult.remainingCredits
         });
 
-        const canAfford = await this.creditManager.canAfford(1);
+        const creditsNeeded = this.getCreditsPerImage();
+        const canAfford = await this.creditManager.canAfford(creditsNeeded);
         if (!canAfford) {
           const currentBalance = await this.creditManager.getCurrentBalance();
           return {
             ...baseResult,
-            error: `Insufficient credits. Current balance: ${currentBalance}`,
+            error: `Insufficient credits. Need ${creditsNeeded}, have ${currentBalance}`,
             remainingCredits: currentBalance
           };
         }
@@ -163,9 +180,10 @@ export class ImageDescriptionProcessor {
       // Deduct credits after successful processing
       let creditTransaction: CreditTransactionResult;
       try {
+        const creditsToDeduct = this.getCreditsPerImage();
         creditTransaction = await this.creditManager.deductCredits(
-          1,
-          `Image description for ${file.name}`,
+          creditsToDeduct,
+          `Full processing bundle for ${file.name} (${this.config.provider.toUpperCase()})`,
           CreditTransactionType.IMAGE_DESCRIPTION
         );
       } catch (error) {
@@ -221,7 +239,24 @@ export class ImageDescriptionProcessor {
     confidence: number;
     source: string;
   }> {
-    const IDEOGRAM_API_KEY = await getSetting('IDEOGRAM_API_KEY', 'IDEOGRAM_API_KEY');
+    const provider = this.config.provider;
+
+    if (provider === 'gemini') {
+      try {
+        const result = await describeImageWithGemini(file);
+        return {
+          description: result.description,
+          confidence: result.confidence,
+          source: 'gemini'
+        };
+      } catch (error) {
+        console.error('Gemini description error:', error);
+        throw new Error(`Gemini failed to describe image: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
+    }
+
+    // Default to Ideogram
+    const IDEOGRAM_API_KEY = await getApiKey('IDEOGRAM_API_KEY');
     const IDEOGRAM_API_URL = 'https://api.ideogram.ai/describe';
 
     if (IDEOGRAM_API_KEY) {
@@ -245,7 +280,7 @@ export class ImageDescriptionProcessor {
 
         if (response.ok) {
           const responseText = await response.text();
-          
+
           if (responseText.trim().startsWith('{') || responseText.trim().startsWith('[')) {
             const result = JSON.parse(responseText);
             return {
@@ -261,12 +296,10 @@ export class ImageDescriptionProcessor {
         }
       } catch (error) {
         console.error('Ideogram API error:', error);
-        // Throw the error instead of using fallback description
         throw new Error(`Failed to describe image: ${error instanceof Error ? error.message : 'Unknown API error'}`);
       }
     }
 
-    // Throw error if no API key is available
     throw new Error('Image description service is not available - API key not configured');
   }
 
@@ -293,7 +326,7 @@ export class ImageDescriptionProcessor {
     try {
       // Initial credit check
       const initialBalance = await this.creditManager.getCurrentBalance();
-      
+
       onProgress?.({
         type: 'started',
         index: 0,
@@ -309,7 +342,7 @@ export class ImageDescriptionProcessor {
         }
 
         const file = files[i];
-        
+
         // Check credits before processing if enabled
         if (this.config.checkCreditsBeforeEach && this.config.stopOnInsufficientCredits) {
           const canAfford = await this.creditManager.canAfford(1);
@@ -334,10 +367,10 @@ export class ImageDescriptionProcessor {
           creditsUsed++;
         } else {
           failed++;
-          
+
           // Check if we should stop due to credit issues
-          if (this.config.stopOnInsufficientCredits && 
-              result.error?.includes('Insufficient credits')) {
+          if (this.config.stopOnInsufficientCredits &&
+            result.error?.includes('Insufficient credits')) {
             stoppedDueToCredits = true;
             onProgress?.({
               type: 'stopped',
@@ -409,7 +442,7 @@ export class ImageDescriptionProcessor {
     try {
       // Initial credit check
       const initialBalance = await this.creditManager.getCurrentBalance();
-      
+
       onProgress({
         type: 'progress',
         index: 0,
@@ -426,7 +459,7 @@ export class ImageDescriptionProcessor {
         }
 
         const file = files[i];
-        
+
         // Send credit check update
         onProgress({
           type: 'credit_check',
@@ -474,10 +507,10 @@ export class ImageDescriptionProcessor {
           creditsUsed++;
         } else {
           failed++;
-          
+
           // Check if we should stop due to credit issues
-          if (this.config.stopOnInsufficientCredits && 
-              result.error?.includes('Insufficient credits')) {
+          if (this.config.stopOnInsufficientCredits &&
+            result.error?.includes('Insufficient credits')) {
             stoppedDueToCredits = true;
             onProgress({
               type: 'stopped',

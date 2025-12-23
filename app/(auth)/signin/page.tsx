@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert } from '@/components/ui/alert';
 import { HugeiconsIcon } from '@hugeicons/react';
-import { Mail01Icon, AccessIcon, GoogleIcon, ArrowRight01Icon, Loading03Icon } from '@hugeicons/core-free-icons';
+import { Mail01Icon, GoogleIcon, ArrowRight01Icon, Loading03Icon } from '@hugeicons/core-free-icons';
 
 function SignInForm() {
     const router = useRouter();

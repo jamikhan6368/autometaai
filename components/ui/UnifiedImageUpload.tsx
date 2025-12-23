@@ -3,11 +3,11 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Upload, 
-  X, 
-  AlertCircle, 
-  Loader2, 
+import {
+  Upload,
+  X,
+  AlertCircle,
+  Loader2,
   Image as ImageIcon,
   Plus,
   Download,
@@ -58,6 +58,7 @@ interface UnifiedImageUploadProps {
   showDownloadButton?: boolean;
   onDownloadAll?: () => void;
   downloadButtonText?: string;
+  aiProvider?: string;
 }
 
 // File Manager Class
@@ -157,19 +158,19 @@ class ProgressManager {
   private successful: number = 0;
   private failed: number = 0;
   private startTime: number = 0;
-  private onUpdate: (progress: { 
-    current: number; 
-    total: number; 
-    successful: number; 
+  private onUpdate: (progress: {
+    current: number;
+    total: number;
+    successful: number;
     failed: number;
     percentage: number;
     estimatedTimeRemaining?: number;
   }) => void;
 
-  constructor(onUpdate: (progress: { 
-    current: number; 
-    total: number; 
-    successful: number; 
+  constructor(onUpdate: (progress: {
+    current: number;
+    total: number;
+    successful: number;
     failed: number;
     percentage: number;
     estimatedTimeRemaining?: number;
@@ -198,7 +199,7 @@ class ProgressManager {
   private updateCallback(): void {
     const percentage = this.total > 0 ? Math.round((this.current / this.total) * 100) : 0;
     const estimatedTimeRemaining = this.calculateEstimatedTime();
-    
+
     this.onUpdate({
       current: this.current,
       total: this.total,
@@ -234,7 +235,7 @@ const formatTime = (ms: number): string => {
   const minutes = Math.floor(seconds / 60);
   const remainingSeconds = seconds % 60;
   if (minutes < 60) {
-    return remainingSeconds > 0 
+    return remainingSeconds > 0
       ? `${minutes}m ${remainingSeconds}s`
       : `${minutes} minute${minutes !== 1 ? 's' : ''}`;
   }
@@ -243,28 +244,29 @@ const formatTime = (ms: number): string => {
   return `${hours}h ${remainingMinutes}m`;
 };
 
-const UnifiedImageUpload: React.FC<UnifiedImageUploadProps> = ({ 
+const UnifiedImageUpload: React.FC<UnifiedImageUploadProps> = ({
   userCredits = 0,
   onCreditsUpdate,
   onProcessingComplete,
   showDownloadButton = false,
   onDownloadAll,
-  downloadButtonText = "Download All Descriptions"
+  downloadButtonText = "Download All Descriptions",
+  aiProvider = 'ideogram'
 }) => {
   const [files, setFiles] = useState<FileWithPreview[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [progress, setProgress] = useState<{ 
-    current: number; 
-    total: number; 
-    successful: number; 
-    failed: number; 
+  const [progress, setProgress] = useState<{
+    current: number;
+    total: number;
+    successful: number;
+    failed: number;
     percentage: number;
     estimatedTimeRemaining?: number;
-  }>({ 
-    current: 0, 
-    total: 0, 
-    successful: 0, 
-    failed: 0, 
+  }>({
+    current: 0,
+    total: 0,
+    successful: 0,
+    failed: 0,
     percentage: 0,
     estimatedTimeRemaining: undefined
   });
@@ -285,7 +287,7 @@ const UnifiedImageUpload: React.FC<UnifiedImageUploadProps> = ({
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     if (!fileManagerRef.current) return;
-    
+
     const result = fileManagerRef.current.addFiles(acceptedFiles);
     if (result.errors.length > 0) {
       setErrors(prev => [...prev, ...result.errors]);
@@ -314,7 +316,7 @@ const UnifiedImageUpload: React.FC<UnifiedImageUploadProps> = ({
 
   const processImages = useCallback(async () => {
     if (!fileManagerRef.current || !progressManagerRef.current) return;
-    
+
     const filesToProcess = fileManagerRef.current.getFiles();
     if (filesToProcess.length === 0) return;
 
@@ -334,6 +336,7 @@ const UnifiedImageUpload: React.FC<UnifiedImageUploadProps> = ({
       filesToProcess.forEach((file) => {
         formData.append('images', file);
       });
+      formData.append('aiProvider', aiProvider);
 
       // Use the correct bulk processing endpoint that returns SSE stream
       const response = await fetch('/api/describe/bulk', {
@@ -356,55 +359,53 @@ const UnifiedImageUpload: React.FC<UnifiedImageUploadProps> = ({
 
       // Process the stream
       const processStream = async () => {
+        let buffer = '';
         try {
           while (true) {
             const { done, value } = await reader.read();
             if (done) break;
 
-            const chunk = decoder.decode(value, { stream: true });
-            const lines = chunk.split('\n');
+            buffer += decoder.decode(value, { stream: true });
 
-            for (const line of lines) {
-              if (line.startsWith('data: ')) {
+            // Split by double newline which separates SSE messages
+            const messages = buffer.split('\n\n');
+            // Keep the last potentially incomplete message in the buffer
+            buffer = messages.pop() || '';
+
+            for (const message of messages) {
+              const trimmedMessage = message.trim();
+              if (trimmedMessage.startsWith('data: ')) {
                 try {
-                  const data: ProgressUpdate = JSON.parse(line.slice(6));
-                  
+                  const data: ProgressUpdate = JSON.parse(trimmedMessage.slice(6));
+
                   if (data.type === 'progress') {
                     progressManagerRef.current?.updateProgress(data.index || 0);
                   } else if (data.type === 'result' && data.result) {
                     const result = data.result;
                     fileManagerRef.current?.updateFileStatus(
-                      result.index, 
-                      result.success ? 'completed' : 'error', 
+                      result.index,
+                      result.success ? 'completed' : 'error',
                       result
                     );
                     progressManagerRef.current?.updateProgress(
-                      result.index + 1, 
+                      result.index + 1,
                       result.success
                     );
-                    
+
                     // Update results in real-time
                     const currentResults = fileManagerRef.current?.exportResults() || [];
                     setResults(currentResults);
-                    
-                    // Update credits in real-time after each successful image processing
+
                     if (result.remainingCredits !== undefined && onCreditsUpdate) {
                       onCreditsUpdate(result.remainingCredits);
-                    }
-                    
-                    // Notify parent component of each result
-                    if (onProcessingComplete) {
-                      onProcessingComplete(currentResults);
                     }
                   } else if (data.type === 'complete') {
                     setIsProcessing(false);
                     if (data.summary && onCreditsUpdate) {
                       onCreditsUpdate(data.summary.remainingCredits);
                     }
-                    // Update results for display
                     const finalResults = fileManagerRef.current?.exportResults() || [];
                     setResults(finalResults);
-                    // Notify parent component of completion
                     if (onProcessingComplete) {
                       onProcessingComplete(finalResults);
                     }
@@ -412,8 +413,8 @@ const UnifiedImageUpload: React.FC<UnifiedImageUploadProps> = ({
                     setErrors(prev => [...prev, data.error || 'Unknown error occurred']);
                     setIsProcessing(false);
                   }
-                } catch (error) {
-                  console.error('Error parsing SSE data:', error);
+                } catch (parseError) {
+                  console.warn('Failed to parse SSE message:', parseError, trimmedMessage);
                 }
               }
             }
@@ -421,6 +422,7 @@ const UnifiedImageUpload: React.FC<UnifiedImageUploadProps> = ({
         } catch (error) {
           console.error('Stream processing error:', error);
           setIsProcessing(false);
+          setErrors(prev => [...prev, 'Connection lost during processing.']);
         } finally {
           reader.releaseLock();
         }
@@ -438,39 +440,35 @@ const UnifiedImageUpload: React.FC<UnifiedImageUploadProps> = ({
 
   const downloadResults = () => {
     if (!fileManagerRef.current) return;
-    
+
     const results = fileManagerRef.current.exportResults();
     const dataStr = JSON.stringify(results, null, 2);
     const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr);
-    
+
     const exportFileDefaultName = `image-descriptions-${new Date().toISOString().split('T')[0]}.json`;
-    
+
     const linkElement = document.createElement('a');
     linkElement.setAttribute('href', dataUri);
     linkElement.setAttribute('download', exportFileDefaultName);
     linkElement.click();
   };
 
+  // Credit cost per image based on provider
+  // Ideogram = 20 credits, Gemini = 3 credits
+  const CREDITS_PER_IMAGE = aiProvider === 'gemini' ? 3 : 20;
+
   const canProcessImages = files.length > 0 && userCredits > 0 && !isProcessing;
-  const estimatedCreditsNeeded = files.length;
+  const estimatedCreditsNeeded = files.length * CREDITS_PER_IMAGE;
   const hasInsufficientCredits = estimatedCreditsNeeded > userCredits;
 
   return (
     <div className="w-full max-w-7xl mx-auto space-y-8 p-6">
-      {/* Header */}
-      <div className="text-center space-y-4">
-        <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-          AI Image Description
-        </h1>
-        <p className="text-lg text-slate-600">
-          Upload images and get AI-powered descriptions with real-time progress tracking
-        </p>
-        <div className="flex items-center justify-center space-x-4 text-sm text-slate-500">
-          <span className="flex items-center space-x-1">
-            <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-            <span>Available Credits: {userCredits}</span>
-          </span>
-        </div>
+      {/* Credits Display */}
+      <div className="flex items-center justify-center text-sm text-slate-500">
+        <span className="flex items-center gap-2 bg-slate-50 px-4 py-2 rounded-full border border-slate-200">
+          <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+          <span className="font-medium">{userCredits} Credits Available</span>
+        </span>
       </div>
 
       {/* Error Messages */}
@@ -513,16 +511,16 @@ const UnifiedImageUpload: React.FC<UnifiedImageUploadProps> = ({
             {...(() => {
               const rootProps = getRootProps();
               // Extract only the safe props, excluding all event handlers that conflict with framer-motion
-              const { 
+              const {
                 // eslint-disable-next-line @typescript-eslint/no-unused-vars
                 onKeyDown, onFocus, onBlur, onClick, onDragEnter, onDragOver, onDragLeave, onDrop,
                 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                onDrag, onDragEnd, onDragExit, onDragStart, onMouseDown, onMouseEnter, onMouseLeave, 
+                onDrag, onDragEnd, onDragExit, onDragStart, onMouseDown, onMouseEnter, onMouseLeave,
                 // eslint-disable-next-line @typescript-eslint/no-unused-vars
                 onMouseMove, onMouseOut, onMouseOver, onMouseUp, onAnimationStart, onAnimationEnd,
                 // eslint-disable-next-line @typescript-eslint/no-unused-vars
                 onAnimationIteration, onTransitionEnd, onTransitionStart, onTransitionCancel,
-                ...safeProps 
+                ...safeProps
               } = rootProps;
               return safeProps;
             })()}
@@ -542,25 +540,25 @@ const UnifiedImageUpload: React.FC<UnifiedImageUploadProps> = ({
             )}
           >
             <input {...getInputProps()} />
-            
+
             {/* Background Pattern */}
             <div className="absolute inset-0 opacity-5">
-              <div className="absolute inset-0 bg-gradient-to-r from-blue-600 to-purple-600" 
-                   style={{
-                     backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23000' fill-opacity='0.1'%3E%3Ccircle cx='7' cy='7' r='1'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`
-                   }} />
+              <div className="absolute inset-0 bg-gradient-to-r from-blue-600 to-purple-600"
+                style={{
+                  backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23000' fill-opacity='0.1'%3E%3Ccircle cx='7' cy='7' r='1'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`
+                }} />
             </div>
 
             <div className="relative flex flex-col items-center space-y-8">
-              <motion.div 
+              <motion.div
                 className={cn(
                   'w-24 h-24 rounded-full flex items-center justify-center transition-all duration-500',
                   'bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 shadow-2xl',
                   isDragActive && 'animate-pulse shadow-blue-500/50'
                 )}
-                animate={{ 
+                animate={{
                   rotate: isDragActive ? 360 : 0,
-                  scale: isDragActive ? 1.1 : 1 
+                  scale: isDragActive ? 1.1 : 1
                 }}
                 transition={{ duration: 0.5 }}
               >
@@ -572,25 +570,25 @@ const UnifiedImageUpload: React.FC<UnifiedImageUploadProps> = ({
               </motion.div>
 
               <div className="space-y-4">
-                <motion.h3 
+                <motion.h3
                   className="text-3xl font-bold bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent"
                   animate={{ scale: isDragActive ? 1.05 : 1 }}
                 >
-                  {isDragActive 
-                    ? 'Drop your images here!' 
-                    : files.length > 0 
-                      ? 'Add More Images' 
+                  {isDragActive
+                    ? 'Drop your images here!'
+                    : files.length > 0
+                      ? 'Add More Images'
                       : 'Upload Images'
                   }
                 </motion.h3>
-                
+
                 <p className="text-slate-600 text-lg">
-                  {files.length > 0 
+                  {files.length > 0
                     ? 'Drag and drop more images or click to browse'
                     : 'Drag and drop your images or click to browse'
                   }
                 </p>
-                
+
                 <div className="flex flex-col items-center space-y-2 text-sm text-slate-500">
                   <div className="flex items-center space-x-4">
                     <span className="flex items-center space-x-1">
@@ -653,7 +651,7 @@ const UnifiedImageUpload: React.FC<UnifiedImageUploadProps> = ({
                 </div>
                 <div className="bg-white rounded-xl p-4 text-center">
                   <div className="text-2xl font-bold text-blue-600">
-                    {progress.estimatedTimeRemaining 
+                    {progress.estimatedTimeRemaining
                       ? formatTime(progress.estimatedTimeRemaining)
                       : 'Calculating...'
                     }
@@ -706,13 +704,13 @@ const UnifiedImageUpload: React.FC<UnifiedImageUploadProps> = ({
                     disabled={hasInsufficientCredits}
                     className={cn(
                       "px-8 py-3 text-white",
-                      hasInsufficientCredits 
-                        ? "bg-gray-400 cursor-not-allowed" 
+                      hasInsufficientCredits
+                        ? "bg-gray-400 cursor-not-allowed"
                         : "bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
                     )}
                   >
                     <Zap className="w-5 h-5 mr-2" />
-                    Process {files.length} Image{files.length !== 1 ? 's' : ''} ({files.length} credit{files.length !== 1 ? 's' : ''})
+                    Process {files.length} Image{files.length !== 1 ? 's' : ''} ({estimatedCreditsNeeded} credits)
                   </Button>
                 )}
                 <Button
@@ -744,7 +742,7 @@ const UnifiedImageUpload: React.FC<UnifiedImageUploadProps> = ({
                       alt=""
                       className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
                     />
-                    
+
                     {/* Status Indicator */}
                     <div className="absolute top-2 left-2">
                       <div className={cn(

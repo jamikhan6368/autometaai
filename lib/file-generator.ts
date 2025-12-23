@@ -42,7 +42,7 @@ export async function generateMetadataCSV(
   title: string,
   keywords: string,
   category: string,
-  timestamp: Date
+  _timestamp: Date
 ): Promise<string> {
   // CSV format with proper escaping
   const escapeCSV = (str: string) => {
@@ -74,11 +74,11 @@ ${escapeCSV(filename)},${escapeCSV(title)},${escapeCSV(keywords)},${escapeCSV(ca
  */
 export async function generateRunwayPromptsFile(
   filename: string,
-  mode: string,
+  _mode: string,
   lowMotion?: string,
   mediumMotion?: string,
   highMotion?: string,
-  timestamp?: Date
+  _timestamp?: Date
 ): Promise<string> {
   let content = `Runway Prompts
 ==============

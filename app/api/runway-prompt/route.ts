@@ -3,7 +3,7 @@ import { getSession } from '@/lib/auth-server';
 import { getApiKey } from '@/lib/getApiKey';
 import { deductCredits } from '@/lib/credits';
 import { prisma } from '@/lib/prisma';
-import OpenAI from 'openai';
+
 import { generateRunwayPromptsWithGemini } from '@/lib/gemini-service';
 
 export async function POST(request: NextRequest) {
@@ -34,27 +34,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get user's AI provider preference
-    const aiProvider = (user as any).aiProvider || 'openai';
-
-    // Check if using Gemini - verify API key
-    if (aiProvider === 'gemini') {
-      const geminiKey = await getApiKey('GEMINI_API_KEY');
-      if (!geminiKey) {
-        return NextResponse.json(
-          { error: 'Gemini API key not configured. Please ask admin to add it or switch to OpenAI.' },
-          { status: 500 }
-        );
-      }
-    } else {
-      // Using OpenAI - verify API key
-      const openaiKey = await getApiKey('OPENAI_API_KEY');
-      if (!openaiKey) {
-        return NextResponse.json(
-          { error: 'OpenAI API key not configured' },
-          { status: 500 }
-        );
-      }
+    // Use Gemini for runway prompts
+    const geminiKey = await getApiKey('GEMINI_API_KEY');
+    if (!geminiKey) {
+      return NextResponse.json(
+        { error: 'Gemini API key not configured. Please ask admin to add it.' },
+        { status: 500 }
+      );
     }
 
     const formData = await request.formData();
@@ -66,97 +52,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No image provided' }, { status: 400 });
     }
 
-    let lowResult = '';
-    let mediumResult = '';
-    let highResult = '';
+    // Use Gemini for runway prompts
+    const geminiResult = await generateRunwayPromptsWithGemini(imageFile);
+    const lowResult = geminiResult.low || '';
+    const mediumResult = geminiResult.medium || '';
+    const highResult = geminiResult.high || '';
 
-    if (aiProvider === 'gemini') {
-      // Use Gemini for runway prompts
-      const geminiResult = await generateRunwayPromptsWithGemini(imageFile);
-      lowResult = geminiResult.low || '';
-      mediumResult = geminiResult.medium || '';
-      highResult = geminiResult.high || '';
-    } else {
-      // Use OpenAI for runway prompts
-      const apiKey = await getApiKey('OPENAI_API_KEY');
-      const openai = new OpenAI({ apiKey: apiKey! });
-
-      // Convert image to base64
-      const bytes = await imageFile.arrayBuffer();
-      const buffer = Buffer.from(bytes);
-      const base64Image = buffer.toString('base64');
-      const mimeType = imageFile.type || 'image/jpeg';
-
-      const prompt = `You see a still image. Your task is to describe motion at three intensities: low, medium, and high.
-
-ABSOLUTE RULES:
-- Describe ONLY motion of things that are visible or obviously implied in the image.
-- Do NOT invent new locations, vehicles, sunsets, rice fields, palm trees, etc., if they are not clearly present.
-- Do NOT mention any camera movement.
-- Do NOT write "a smooth dolly camera".
-- Do NOT write "cinematic live-action".
-- Do NOT wrap anything in parentheses.
-
-For each motion level, write ONE short clause (not a full sentence) that starts directly with the scene or subject, for example:
-- "the subject barely shifts and the surrounding lights flicker softly"
-- "the truck rolls steadily forward and reflections slide along the floor"
-- "the cart races ahead as gifts tumble and lights flare intensely"
-
-Focus on:
-- how the main subject moves (or stays almost still),
-- how the environment reacts (lights, reflections, particles, smoke, dust, trees, etc.),
-- using adjectives/adverbs that match the intensity:
-
-LOW MOTION:
-- Very subtle, calm movement.
-- Use words like: "barely", "slightly", "gently", "softly", "subtle".
-
-MEDIUM MOTION:
-- Clear, natural motion.
-- No "barely" or "violently".
-- Use moderate words like "steadily", "slowly", "gradually".
-
-HIGH MOTION:
-- Strong, energetic motion.
-- Use words like "rapidly", "quickly", "violently", "intensely".
-
-OUTPUT FORMAT (JSON ONLY):
-{
-  "low": "<low-motion clause>",
-  "medium": "<medium-motion clause>",
-  "high": "<high-motion clause>"
-}`;
-
-      const response = await openai.chat.completions.create({
-        model: 'gpt-4o-mini',
-        messages: [
-          {
-            role: 'user',
-            content: [
-              { type: 'text', text: prompt },
-              {
-                type: 'image_url',
-                image_url: {
-                  url: `data:${mimeType};base64,${base64Image}`,
-                },
-              },
-            ],
-          },
-        ],
-        response_format: { type: 'json_object' },
-        max_tokens: 500,
-      });
-
-      const content = response.choices[0]?.message?.content;
-      if (!content) {
-        throw new Error('No response from OpenAI');
-      }
-
-      const result = JSON.parse(content);
-      lowResult = result.low || '';
-      mediumResult = result.medium || '';
-      highResult = result.high || '';
-    }
 
     // Build final Runway prompts with camera movements
     const buildPrompt = (motion: string, clause: string) => {

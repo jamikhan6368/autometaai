@@ -19,14 +19,15 @@ export default function RunwayPromptPage() {
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
   const [results, setResults] = useState<PromptResult[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [progress, setProgress] = useState(0);
+  const [, setProgress] = useState(0);
   const [currentFile, setCurrentFile] = useState(0);
   const [totalFiles, setTotalFiles] = useState(0);
   const [error, setError] = useState<string>('');
 
+
   const onDrop = useCallback((acceptedFiles: File[]) => {
     setSelectedFiles(prev => [...prev, ...acceptedFiles]);
-    
+
     acceptedFiles.forEach(file => {
       const reader = new FileReader();
       reader.onload = () => {
@@ -34,7 +35,7 @@ export default function RunwayPromptPage() {
       };
       reader.readAsDataURL(file);
     });
-    
+
     setError('');
   }, []);
 
@@ -104,7 +105,7 @@ export default function RunwayPromptPage() {
             });
           }
 
-          setResults(prev => [...newResults]);
+          setResults([...newResults]);
         }
 
         // After all processed, create batch file in background (don't wait)
@@ -208,11 +209,10 @@ export default function RunwayPromptPage() {
 
               <div
                 {...getRootProps()}
-                className={`border-2 border-dashed rounded-xl p-12 text-center cursor-pointer transition-all duration-300 ${
-                  isDragActive
-                    ? 'border-blue-500 bg-blue-50'
-                    : 'border-slate-300 hover:border-blue-400 hover:bg-slate-50'
-                }`}
+                className={`border-2 border-dashed rounded-xl p-12 text-center cursor-pointer transition-all duration-300 ${isDragActive
+                  ? 'border-blue-500 bg-blue-50'
+                  : 'border-slate-300 hover:border-blue-400 hover:bg-slate-50'
+                  }`}
               >
                 <input {...getInputProps()} />
                 <HugeiconsIcon icon={Image02Icon} size={64} className="mx-auto mb-4 text-slate-400" />
@@ -242,7 +242,7 @@ export default function RunwayPromptPage() {
                       Clear All
                     </button>
                   </div>
-                  
+
                   <div className="grid grid-cols-4 gap-3">
                     {previewUrls.map((url, index) => (
                       <div key={index} className="relative group">
@@ -342,7 +342,7 @@ export default function RunwayPromptPage() {
                           </p>
                         </div>
                       </div>
-                      
+
                       {result.error ? (
                         <p className="text-sm text-red-600">{result.error}</p>
                       ) : (

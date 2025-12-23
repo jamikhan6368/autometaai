@@ -9,7 +9,7 @@ import { Settings02Icon } from '@hugeicons/core-free-icons';
 type AIProvider = 'openai' | 'gemini';
 
 export default function SettingsPage() {
-    const { data: session } = useSession();
+    useSession();
     const [aiProvider, setAiProvider] = useState<AIProvider>('openai');
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -83,8 +83,8 @@ export default function SettingsPage() {
                 {message && (
                     <div
                         className={`p-4 rounded-xl mb-6 ${message.type === 'success'
-                                ? 'bg-green-50 border border-green-200 text-green-800'
-                                : 'bg-red-50 border border-red-200 text-red-800'
+                            ? 'bg-green-50 border border-green-200 text-green-800'
+                            : 'bg-red-50 border border-red-200 text-red-800'
                             }`}
                     >
                         {message.text}
@@ -105,8 +105,8 @@ export default function SettingsPage() {
                         <div
                             onClick={() => setAiProvider('openai')}
                             className={`p-4 rounded-xl border-2 cursor-pointer transition-all duration-300 ${aiProvider === 'openai'
-                                    ? 'border-blue-500 bg-blue-50 shadow-md'
-                                    : 'border-slate-200 hover:border-slate-300'
+                                ? 'border-blue-500 bg-blue-50 shadow-md'
+                                : 'border-slate-200 hover:border-slate-300'
                                 }`}
                         >
                             <div className="flex items-center gap-4">
@@ -136,8 +136,8 @@ export default function SettingsPage() {
                         <div
                             onClick={() => setAiProvider('gemini')}
                             className={`p-4 rounded-xl border-2 cursor-pointer transition-all duration-300 ${aiProvider === 'gemini'
-                                    ? 'border-purple-500 bg-purple-50 shadow-md'
-                                    : 'border-slate-200 hover:border-slate-300'
+                                ? 'border-purple-500 bg-purple-50 shadow-md'
+                                : 'border-slate-200 hover:border-slate-300'
                                 }`}
                         >
                             <div className="flex items-center gap-4">

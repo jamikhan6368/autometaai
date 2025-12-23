@@ -12,7 +12,6 @@ import {
   UserGroupIcon,
   CreditCardIcon,
   Analytics01Icon,
-  Settings02Icon,
   Logout01Icon
 } from '@hugeicons/core-free-icons';
 
@@ -42,9 +41,9 @@ const AdminSidebar = () => {
       icon: <HugeiconsIcon icon={Analytics01Icon} size={20} strokeWidth={2} />
     },
     {
-      name: 'Settings',
-      href: '/admin/settings',
-      icon: <HugeiconsIcon icon={Settings02Icon} size={20} strokeWidth={2} />
+      name: 'Payments',
+      href: '/admin/payments',
+      icon: <HugeiconsIcon icon={Analytics01Icon} size={20} strokeWidth={2} />
     }
   ];
 

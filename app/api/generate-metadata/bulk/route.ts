@@ -4,7 +4,7 @@ import { getApiKey } from '@/lib/getApiKey';
 import { CreditManager } from '@/lib/credit-manager';
 import { prisma } from '@/lib/prisma';
 import { generateBulkMetadataCSV } from '@/lib/file-generator';
-import OpenAI from 'openai';
+import { generateMetadataWithGemini } from '@/lib/gemini-service';
 
 export async function POST(request: NextRequest) {
   try {
@@ -39,12 +39,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const apiKey = await getApiKey('OPENAI_API_KEY');
-    if (!apiKey) {
-      return NextResponse.json({ error: 'OpenAI API key not configured' }, { status: 500 });
+    const geminiKey = await getApiKey('GEMINI_API_KEY');
+    if (!geminiKey) {
+      return NextResponse.json({ error: 'Gemini API key not configured' }, { status: 500 });
     }
 
-    const openai = new OpenAI({ apiKey });
     const results = [];
     let successCount = 0;
 
@@ -54,60 +53,22 @@ export async function POST(request: NextRequest) {
       ? `Generate exactly ${keywordCount} SINGLE-WORD keywords only.`
       : `Generate exactly ${keywordCount} relevant keywords.`;
 
-    const prompt = `Analyze this image for Adobe Stock metadata.
-
-1. Generate a descriptive Title (aim for ${titleLength} characters). To meet this length, describe the subject, action, setting, lighting, and mood in detail. Do not be concise.
-   STRICTLY FORBIDDEN: Do NOT use any special characters (like - / : ; ( ) & !) in the Title. Use ONLY letters, numbers, and spaces.
-
-2. ${keywordInstruction} Comma separated.
-   STRICTLY FORBIDDEN: Do NOT use special characters in keywords.
-
-3. Choose Category ID from: ${categories}
-
-Return JSON with: "title", "keywords", "category_id" (number).`;
-
     // Process all images
     for (const imageFile of images) {
       try {
-        const bytes = await imageFile.arrayBuffer();
-        const buffer = Buffer.from(bytes);
-        const base64Image = buffer.toString('base64');
-        const mimeType = imageFile.type || 'image/jpeg';
-
-        const response = await openai.chat.completions.create({
-          model: 'gpt-4o-mini',
-          messages: [
-            {
-              role: 'user',
-              content: [
-                { type: 'text', text: prompt },
-                {
-                  type: 'image_url',
-                  image_url: {
-                    url: `data:${mimeType};base64,${base64Image}`,
-                  },
-                },
-              ],
-            },
-          ],
-          response_format: { type: 'json_object' },
-          max_tokens: 800,
+        const geminiResult = await generateMetadataWithGemini(imageFile, {
+          titleLength,
+          keywordCount,
+          singleWordKeywords
         });
 
-        const content = response.choices[0]?.message?.content;
-        if (!content) {
-          throw new Error('No response from OpenAI');
-        }
-
-        const result = JSON.parse(content);
-
         // Clean and validate
-        let title = (result.title || '').replace(/[^\w\s]/g, '').trim();
+        let title = (geminiResult.title || '').replace(/[^\w\s]/g, '').trim();
         if (title.length > titleLength) {
           title = title.slice(0, titleLength);
         }
 
-        let keywords = (result.keywords || '').replace(/[^\w\s,]/g, '').trim();
+        let keywords = (geminiResult.keywords || '').replace(/[^\w\s,]/g, '').trim();
         const keywordList = keywords
           .split(',')
           .map((k: string) => k.trim())
@@ -118,7 +79,7 @@ Return JSON with: "title", "keywords", "category_id" (number).`;
           keywords = keywordList.join(',');
         }
 
-        const categoryId = result.category_id || 1;
+        const categoryId = geminiResult.category_id || 1;
         const categoryName = categories.split(',')[categoryId - 1]?.trim() || 'General';
         const categoryString = `${categoryId}. ${categoryName}`;
 
@@ -139,6 +100,7 @@ Return JSON with: "title", "keywords", "category_id" (number).`;
         });
       }
     }
+
 
     // Deduct credits only for successful processing
     if (successCount > 0) {

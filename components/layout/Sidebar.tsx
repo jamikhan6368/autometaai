@@ -7,7 +7,7 @@ import { useSession, signOut } from '@/lib/auth-client';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { HugeiconsIcon } from '@hugeicons/react';
-import { TextIcon, Clock01Icon, ShoppingBasket01Icon, Logout01Icon, Image02Icon, VideoIcon, FileEditIcon, Invoice01Icon, FlashIcon, PaintBoardIcon, Settings02Icon } from '@hugeicons/core-free-icons';
+import { TextIcon, Clock01Icon, ShoppingBasket01Icon, Logout01Icon, Image02Icon, VideoIcon, FileEditIcon, Invoice01Icon, FlashIcon, PaintBoardIcon } from '@hugeicons/core-free-icons';
 
 const Sidebar = () => {
   const pathname = usePathname();
@@ -48,11 +48,6 @@ const Sidebar = () => {
       name: 'Payment Requests',
       href: '/payment-requests',
       icon: <HugeiconsIcon icon={Invoice01Icon} size={20} strokeWidth={2} />
-    },
-    {
-      name: 'Settings',
-      href: '/settings',
-      icon: <HugeiconsIcon icon={Settings02Icon} size={20} strokeWidth={2} />
     }
   ];
 

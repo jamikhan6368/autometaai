@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getCurrentUser, deductCredits } from '@/lib/user';
-import { getSetting } from '@/lib/settings';
+import { getApiKey } from '@/lib/getApiKey';
+import { describeImageWithGemini } from '@/lib/gemini-service';
 
 const IDEOGRAM_API_URL = 'https://api.ideogram.ai/describe';
 
@@ -15,112 +16,124 @@ interface ProcessResult {
   error?: string;
 }
 
-async function processImage(file: File, userId: string): Promise<ProcessResult> {
+async function processImage(file: File, userId: string, aiProvider: string = 'ideogram'): Promise<ProcessResult> {
   try {
-    // Validate file type
+    // ... validation code ...
     if (!file.type.startsWith('image/')) {
-      return {
-        success: false,
-        filename: file.name,
-        error: 'File must be an image'
-      };
+      return { success: false, filename: file.name, error: 'File must be an image' };
     }
-
-    // Validate file size (10MB limit)
     if (file.size > 10 * 1024 * 1024) {
-      return {
-        success: false,
-        filename: file.name,
-        error: 'File size must be less than 10MB'
-      };
+      return { success: false, filename: file.name, error: 'File size must be less than 10MB' };
     }
 
     let description = '';
     let confidence = 95;
-    let source = 'ideogram';
+    let source = aiProvider;
 
-    // Get Ideogram API key from database (with fallback to env)
-    const IDEOGRAM_API_KEY = await getSetting('IDEOGRAM_API_KEY', 'IDEOGRAM_API_KEY');
-
-    // Try to call Ideogram API
-    if (IDEOGRAM_API_KEY) {
+    if (aiProvider === 'gemini') {
       try {
-        const ideogramFormData = new FormData();
-        ideogramFormData.append('image_file', file);
-
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
-
-        const ideogramResponse = await fetch(IDEOGRAM_API_URL, {
-          method: 'POST',
-          headers: {
-            'Api-Key': IDEOGRAM_API_KEY,
-          },
-          body: ideogramFormData,
-          signal: controller.signal,
-        });
-
-        clearTimeout(timeoutId);
-
-        if (ideogramResponse.ok) {
-          // Check if response is JSON
-          let responseText = '';
-          
-          try {
-            // First, get the response as text to check if it's valid
-            responseText = await ideogramResponse.text();
-            
-            // Check if it looks like JSON (starts with { or [)
-            if (responseText.trim().startsWith('{') || responseText.trim().startsWith('[')) {
-              const result = JSON.parse(responseText);
-              description = result.descriptions?.[0]?.text || result.description || 'No description available';
-              confidence = 95;
-              source = 'ideogram';
-            } else {
-              console.error('Ideogram API returned non-JSON response:', responseText.substring(0, 200));
-              throw new Error('Ideogram API returned invalid response format');
-            }
-          } catch (jsonError) {
-            console.error('Failed to parse Ideogram API response:', jsonError);
-            console.error('Response text:', responseText.substring(0, 200));
-            throw new Error('Invalid JSON response from Ideogram API');
-          }
-        } else {
-          // Handle error responses
-          const contentType = ideogramResponse.headers.get('content-type');
-          let errorMessage = 'Ideogram API request failed';
-          
-          try {
-            if (contentType && contentType.includes('application/json')) {
-              const errorData = await ideogramResponse.json();
-              errorMessage = errorData.message || errorData.error || errorMessage;
-            } else {
-              const errorText = await ideogramResponse.text();
-              console.error('Ideogram API error response:', errorText);
-              errorMessage = `API error (${ideogramResponse.status}): ${errorText.substring(0, 100)}`;
-            }
-          } catch (parseError) {
-            console.error('Failed to parse error response:', parseError);
-          }
-          
-          throw new Error(errorMessage);
-        }
-      } catch (apiError) {
-        console.error('Ideogram API error:', apiError);
-        // Return error instead of fallback description
+        const result = await describeImageWithGemini(file);
+        description = result.description;
+        confidence = result.confidence;
+        source = 'gemini';
+      } catch (error) {
+        console.error('Gemini description error:', error);
         return {
           success: false,
           filename: file.name,
-          error: `Failed to describe image: ${apiError instanceof Error ? apiError.message : 'Unknown API error'}`
+          error: `Gemini failed: ${error instanceof Error ? error.message : 'Unknown error'}`
         };
       }
     } else {
-      // Return error when no API key is available
-      return {
-        success: false,
-        filename: file.name,
-        error: 'Image description service is not available - API key not configured'
-      };
+      // Default to Ideogram
+      const IDEOGRAM_API_KEY = await getApiKey('IDEOGRAM_API_KEY');
+      if (IDEOGRAM_API_KEY) {
+        // ... Ideogram API call ...
+      }
+    }
+
+    // Try to call Ideogram API if that was the chosen provider
+    if (aiProvider === 'ideogram') {
+      const IDEOGRAM_API_KEY = await getApiKey('IDEOGRAM_API_KEY');
+      if (IDEOGRAM_API_KEY) {
+        try {
+          const ideogramFormData = new FormData();
+          ideogramFormData.append('image_file', file);
+
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+
+          const ideogramResponse = await fetch(IDEOGRAM_API_URL, {
+            method: 'POST',
+            headers: {
+              'Api-Key': IDEOGRAM_API_KEY,
+            },
+            body: ideogramFormData,
+            signal: controller.signal,
+          });
+
+          clearTimeout(timeoutId);
+
+          if (ideogramResponse.ok) {
+            // Check if response is JSON
+            let responseText = '';
+
+            try {
+              // First, get the response as text to check if it's valid
+              responseText = await ideogramResponse.text();
+
+              // Check if it looks like JSON (starts with { or [)
+              if (responseText.trim().startsWith('{') || responseText.trim().startsWith('[')) {
+                const result = JSON.parse(responseText);
+                description = result.descriptions?.[0]?.text || result.description || 'No description available';
+                confidence = 95;
+                source = 'ideogram';
+              } else {
+                console.error('Ideogram API returned non-JSON response:', responseText.substring(0, 200));
+                throw new Error('Ideogram API returned invalid response format');
+              }
+            } catch (jsonError) {
+              console.error('Failed to parse Ideogram API response:', jsonError);
+              console.error('Response text:', responseText.substring(0, 200));
+              throw new Error('Invalid JSON response from Ideogram API');
+            }
+          } else {
+            // Handle error responses
+            const contentType = ideogramResponse.headers.get('content-type');
+            let errorMessage = 'Ideogram API request failed';
+
+            try {
+              if (contentType && contentType.includes('application/json')) {
+                const errorData = await ideogramResponse.json();
+                errorMessage = errorData.message || errorData.error || errorMessage;
+              } else {
+                const errorText = await ideogramResponse.text();
+                console.error('Ideogram API error response:', errorText);
+                errorMessage = `API error (${ideogramResponse.status}): ${errorText.substring(0, 100)}`;
+              }
+            } catch (parseError) {
+              console.error('Failed to parse error response:', parseError);
+            }
+
+            throw new Error(errorMessage);
+          }
+        } catch (apiError) {
+          console.error('Ideogram API error:', apiError);
+          // Return error instead of fallback description
+          return {
+            success: false,
+            filename: file.name,
+            error: `Failed to describe image: ${apiError instanceof Error ? apiError.message : 'Unknown API error'}`
+          };
+        }
+      } else {
+        // Return error when no API key is available for Ideogram
+        return {
+          success: false,
+          filename: file.name,
+          error: 'Ideogram description service is not available - API key not configured'
+        };
+      }
     }
 
     // Save to database
@@ -158,13 +171,14 @@ async function processImage(file: File, userId: string): Promise<ProcessResult> 
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
-    
+    const aiProvider = (formData.get('aiProvider') as string) || 'ideogram';
+
     // Check if it's a single image or multiple images
     const singleImage = formData.get('image') as File;
     const multipleImages = formData.getAll('images') as File[];
-    
+
     let files: File[] = [];
-    
+
     if (singleImage) {
       // Single image mode
       files = [singleImage];
@@ -186,7 +200,7 @@ export async function POST(request: NextRequest) {
 
     if (user.credits < requiredCredits) {
       return NextResponse.json(
-        { 
+        {
           error: 'Insufficient credits',
           required: requiredCredits,
           available: user.credits,
@@ -201,9 +215,9 @@ export async function POST(request: NextRequest) {
     let successfulProcessing = 0;
 
     for (const file of files) {
-      const result = await processImage(file, user.id);
+      const result = await processImage(file, user.id, aiProvider);
       results.push(result);
-      
+
       if (result.success) {
         successfulProcessing++;
       }
@@ -255,7 +269,7 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('Error processing image(s):', error);
-    
+
     // Check if it's an authentication error
     if (error instanceof Error && (error.message === 'User not authenticated' || error.message === 'User not found')) {
       return NextResponse.json(
@@ -263,7 +277,7 @@ export async function POST(request: NextRequest) {
         { status: 401 }
       );
     }
-    
+
     // Check if it's a credits error
     if (error instanceof Error && error.message === 'Insufficient credits') {
       return NextResponse.json(
@@ -271,7 +285,7 @@ export async function POST(request: NextRequest) {
         { status: 402 }
       );
     }
-    
+
     return NextResponse.json(
       { error: 'Failed to process image(s)' },
       { status: 500 }

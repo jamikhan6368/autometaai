@@ -9,7 +9,6 @@ import { Check, CreditCard, Shield, Zap, Info } from 'lucide-react';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { ArrowRight01Icon, PackageIcon, FlashIcon, CrownIcon } from '@hugeicons/core-free-icons';
 import { cn } from '@/lib/utils';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 
 type LocationType = 'pakistan' | 'international';
 
@@ -22,6 +21,7 @@ interface CreditPackage {
   popular?: boolean;
   qrCode?: string;
   currency?: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   icon?: any;
   gradient?: string;
 }
@@ -29,10 +29,11 @@ interface CreditPackage {
 const pakistanGeneralPackages: CreditPackage[] = [
   {
     name: 'Starter',
-    credits: 100,
+    credits: 3000,
     price: 300,
+    qrCode: 'Custom 2pkr for 1 cradit.png',
     features: [
-      '100 AI generations',
+      '3000 AI generations',
       'All tools access',
       'Standard processing',
       'Email support'
@@ -40,11 +41,12 @@ const pakistanGeneralPackages: CreditPackage[] = [
   },
   {
     name: 'Pro',
-    credits: 500,
+    credits: 10000,
     price: 1000,
     popular: true,
+    qrCode: '1000 Rs 500 Cradit.png',
     features: [
-      '500 AI generations',
+      '10000 AI generations',
       'All tools access',
       'Fast processing',
       'Batch operations',
@@ -54,10 +56,11 @@ const pakistanGeneralPackages: CreditPackage[] = [
   },
   {
     name: 'Power',
-    credits: 1000,
+    credits: 20000,
     price: 2000,
+    qrCode: '2000Rs 1000 Cradit.png',
     features: [
-      '1000 AI generations',
+      '20000 AI generations',
       'All tools access',
       'Priority processing',
       'Batch operations',
@@ -66,6 +69,8 @@ const pakistanGeneralPackages: CreditPackage[] = [
     ]
   },
 ];
+
+
 
 const internationalGeneralPackages: CreditPackage[] = [
   {
@@ -197,9 +202,8 @@ export default function BuyCreditsPage() {
   const { data: session, isPending } = useSession();
   const router = useRouter();
   const [location, setLocation] = useState<LocationType>('pakistan');
-  const [selectedPackage, setSelectedPackage] = useState<CreditPackage | null>(null);
+  const [, setSelectedPackage] = useState<CreditPackage | null>(null);
   const [creditType, setCreditType] = useState<'GENERAL' | 'BG_REMOVAL'>('GENERAL');
-  const [error, setError] = useState('');
 
   useEffect(() => {
     if (isPending) return;
@@ -233,7 +237,7 @@ export default function BuyCreditsPage() {
     const params = new URLSearchParams({
       packageName: pkg.name,
       credits: pkg.credits.toString(),
-      price: pkg.price.toString(),
+      amount: pkg.price.toString(),
       currency: pkg.currency || 'PKR',
       location: location,
       creditType: creditType,
