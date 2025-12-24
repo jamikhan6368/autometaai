@@ -30,6 +30,7 @@ interface User {
   email: string
   name: string | null
   credits: number
+  bgRemovalCredits?: number
 }
 
 export default function CreditsPage() {
@@ -40,6 +41,7 @@ export default function CreditsPage() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [selectedUserId, setSelectedUserId] = useState("")
   const [creditAmount, setCreditAmount] = useState("")
+  const [creditType, setCreditType] = useState<"general" | "bg">("general")
   const [description, setDescription] = useState("")
 
   useEffect(() => {
@@ -85,7 +87,8 @@ export default function CreditsPage() {
         body: JSON.stringify({
           userId: selectedUserId,
           amount: parseInt(creditAmount),
-          description: description || "Admin credit adjustment",
+          creditType: creditType,
+          description: description || `Admin ${creditType === "bg" ? "BG removal" : "general"} credit adjustment`,
         }),
       })
 
@@ -95,6 +98,7 @@ export default function CreditsPage() {
         setIsAddDialogOpen(false)
         setSelectedUserId("")
         setCreditAmount("")
+        setCreditType("general")
         setDescription("")
       }
     } catch (error) {
@@ -148,7 +152,7 @@ export default function CreditsPage() {
               Add Credits
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="sm:max-w-[425px]">
             <DialogHeader>
               <DialogTitle>Add Credits to User</DialogTitle>
               <DialogDescription>
@@ -157,24 +161,47 @@ export default function CreditsPage() {
             </DialogHeader>
             <div className="grid gap-4 py-4">
               <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="user" className="text-right">
+                <Label htmlFor="user" className="text-right text-slate-700">
                   User
                 </Label>
                 <Select value={selectedUserId} onValueChange={setSelectedUserId}>
-                  <SelectTrigger className="col-span-3">
+                  <SelectTrigger className="col-span-3 text-slate-900">
                     <SelectValue placeholder="Select a user" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="bg-white border border-slate-200 shadow-lg z-50 min-w-[300px]">
                     {users.map((user) => (
-                      <SelectItem key={user.id} value={user.id}>
-                        {user.name || user.email} ({user.credits} credits)
+                      <SelectItem
+                        key={user.id}
+                        value={user.id}
+                        className="text-slate-900 hover:bg-slate-100 cursor-pointer py-2"
+                      >
+                        {user.name || user.email} - Gen: {user.credits}, BG: {user.bgRemovalCredits || 0}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
+
               <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="amount" className="text-right">
+                <Label htmlFor="creditType" className="text-right text-slate-700">
+                  Credit Type
+                </Label>
+                <Select value={creditType} onValueChange={(value) => setCreditType(value as "general" | "bg")}>
+                  <SelectTrigger className="col-span-3 text-slate-900">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white border border-slate-200 shadow-lg z-50">
+                    <SelectItem value="general" className="text-slate-900 hover:bg-slate-100 cursor-pointer">
+                      General Credits
+                    </SelectItem>
+                    <SelectItem value="bg" className="text-slate-900 hover:bg-slate-100 cursor-pointer">
+                      BG Removal Credits
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="amount" className="text-right text-slate-700">
                   Amount
                 </Label>
                 <Input
@@ -183,11 +210,11 @@ export default function CreditsPage() {
                   placeholder="Enter credit amount"
                   value={creditAmount}
                   onChange={(e) => setCreditAmount(e.target.value)}
-                  className="col-span-3"
+                  className="col-span-3 text-slate-900"
                 />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="description" className="text-right">
+                <Label htmlFor="description" className="text-right text-slate-700">
                   Description
                 </Label>
                 <Textarea
@@ -195,7 +222,7 @@ export default function CreditsPage() {
                   placeholder="Optional description"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  className="col-span-3"
+                  className="col-span-3 text-slate-900"
                 />
               </div>
             </div>
@@ -220,7 +247,7 @@ export default function CreditsPage() {
               placeholder="Search transactions..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="max-w-sm"
+              className="max-w-sm text-slate-900"
             />
           </div>
 

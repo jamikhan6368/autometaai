@@ -17,7 +17,7 @@ export async function PATCH(
       )
     }
 
-    const { credits, role, isActive } = await request.json()
+    const { credits, bgRemovalCredits, role, isActive } = await request.json()
     const resolvedParams = await params
     const userId = resolvedParams.id
 
@@ -33,12 +33,14 @@ export async function PATCH(
       )
     }
 
-    // Prepare update data
-    const updateData: { credits?: number; role?: UserRole; isActive?: boolean } = {}
-    
+    // Prepare update data - use 'any' to handle dynamic fields
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const updateData: any = {}
+
+    // Handle general credits update
     if (credits !== undefined && credits !== currentUser.credits) {
       updateData.credits = credits
-      
+
       // Create credit transaction for admin adjustment
       const creditDifference = credits - currentUser.credits
       await prisma.creditTransaction.create({
@@ -46,7 +48,25 @@ export async function PATCH(
           userId,
           amount: creditDifference,
           type: "ADMIN_ADJUSTMENT",
-          description: `Admin adjustment: ${creditDifference > 0 ? "+" : ""}${creditDifference} credits`
+          description: `Admin adjustment: ${creditDifference > 0 ? "+" : ""}${creditDifference} general credits`
+        }
+      })
+    }
+
+    // Handle BG removal credits update
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const currentBgCredits = (currentUser as any).bgRemovalCredits || 0
+    if (bgRemovalCredits !== undefined && bgRemovalCredits !== currentBgCredits) {
+      updateData.bgRemovalCredits = bgRemovalCredits
+
+      // Create credit transaction for admin BG credit adjustment
+      const bgCreditDifference = bgRemovalCredits - currentBgCredits
+      await prisma.creditTransaction.create({
+        data: {
+          userId,
+          amount: bgCreditDifference,
+          type: "ADMIN_ADJUSTMENT",
+          description: `Admin adjustment: ${bgCreditDifference > 0 ? "+" : ""}${bgCreditDifference} BG removal credits`
         }
       })
     }
@@ -65,6 +85,9 @@ export async function PATCH(
       data: updateData
     })
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const updatedUserAny = updatedUser as any
+
     return NextResponse.json({
       message: "User updated successfully",
       user: {
@@ -73,6 +96,7 @@ export async function PATCH(
         name: updatedUser.name,
         role: updatedUser.role,
         credits: updatedUser.credits,
+        bgRemovalCredits: updatedUserAny.bgRemovalCredits || 0,
         isActive: updatedUser.isActive
       }
     })

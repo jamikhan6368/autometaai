@@ -136,7 +136,7 @@ export async function generateBulkDescriptionsFile(
     source: string;
   }>,
   timestamp: Date
-): Promise<string> {
+): Promise<string | null> {
   let content = `Image Descriptions - Batch Processing
 ======================================
 
@@ -159,18 +159,25 @@ ${item.description}
 
 `;
 
-  // Save to public/downloads directory
-  const downloadsDir = join(process.cwd(), 'public', 'downloads', 'descriptions');
-  await mkdir(downloadsDir, { recursive: true });
+  try {
+    // Save to public/downloads directory (only works locally, not on serverless)
+    const downloadsDir = join(process.cwd(), 'public', 'downloads', 'descriptions');
+    await mkdir(downloadsDir, { recursive: true });
 
-  const fileName = `descriptions_batch_${timestamp.toISOString().split('T')[0]}_${timestamp.getTime()}.txt`;
-  const filePath = join(downloadsDir, fileName);
+    const fileName = `descriptions_batch_${timestamp.toISOString().split('T')[0]}_${timestamp.getTime()}.txt`;
+    const filePath = join(downloadsDir, fileName);
 
-  await writeFile(filePath, content, 'utf-8');
+    await writeFile(filePath, content, 'utf-8');
 
-  // Return public URL
-  return `/downloads/descriptions/${fileName}`;
+    // Return public URL
+    return `/downloads/descriptions/${fileName}`;
+  } catch {
+    // On serverless (Vercel), filesystem is read-only - return null
+    console.log('File system not available (serverless environment), skipping file generation');
+    return null;
+  }
 }
+
 
 /**
  * Generate bulk metadata CSV file (for batch processing)

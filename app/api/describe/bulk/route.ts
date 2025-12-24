@@ -64,21 +64,23 @@ export async function POST(request: NextRequest) {
               new Date()
             );
 
-            // Save batch operation record
-            await prisma.batchOperation.create({
-              data: {
-                userId: user.id,
-                type: 'describe',
-                itemCount: summary.successful,
-                fileUrl: batchFileUrl,
-              },
-            });
+            // Save batch operation record (only if file was generated)
+            if (batchFileUrl) {
+              await prisma.batchOperation.create({
+                data: {
+                  userId: user.id,
+                  type: 'describe',
+                  itemCount: summary.successful,
+                  fileUrl: batchFileUrl,
+                },
+              });
+            }
 
             // Send one final completion update with the batch file URL
             send({
               type: 'complete',
               summary,
-              batchFileUrl
+              batchFileUrl: batchFileUrl || undefined
             });
           }
 

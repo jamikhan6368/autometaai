@@ -20,6 +20,7 @@ export async function GET() {
         name: true,
         role: true,
         credits: true,
+        bgRemovalCredits: true,
         isActive: true,
         createdAt: true,
         lastLoginAt: true,
@@ -28,7 +29,8 @@ export async function GET() {
             imageDescriptions: true
           }
         }
-      },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } as any,
       orderBy: {
         createdAt: "desc"
       }

@@ -124,6 +124,7 @@ const pakistanBgRemovalPackages: CreditPackage[] = [
     name: 'Starter',
     credits: 100,
     price: 200,
+    qrCode: 'Custom 2pkr for 1 cradit.png',
     features: [
       '100 BG removals',
       'Single & bulk processing',
@@ -137,6 +138,7 @@ const pakistanBgRemovalPackages: CreditPackage[] = [
     credits: 500,
     price: 1000,
     popular: true,
+    qrCode: '1000 Rs 500 Cradit.png',
     features: [
       '500 BG removals',
       'Single & bulk processing',
@@ -150,6 +152,7 @@ const pakistanBgRemovalPackages: CreditPackage[] = [
     name: 'Elite',
     credits: 1000,
     price: 2000,
+    qrCode: '2000Rs 1000 Cradit.png',
     features: [
       '1000 BG removals',
       'Single & bulk processing',
@@ -160,6 +163,7 @@ const pakistanBgRemovalPackages: CreditPackage[] = [
     ]
   },
 ];
+
 
 const internationalBgRemovalPackages: CreditPackage[] = [
   {

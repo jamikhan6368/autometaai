@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { userId, amount, description } = await request.json()
+    const { userId, amount, creditType, description } = await request.json()
 
     if (!userId || !amount) {
       return NextResponse.json(
@@ -59,14 +59,18 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Update user credits
+    // Determine which credit field to update based on creditType
+    const isBgCredit = creditType === "bg"
+
+    // Update user credits - using 'any' type as bgRemovalCredits may not be in types yet
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const updateData: any = isBgCredit
+      ? { bgRemovalCredits: { increment: amount } }
+      : { credits: { increment: amount } }
+
     const updatedUser = await prisma.user.update({
       where: { id: userId },
-      data: {
-        credits: {
-          increment: amount
-        }
-      }
+      data: updateData
     })
 
     // Create credit transaction
@@ -75,16 +79,20 @@ export async function POST(request: NextRequest) {
         userId,
         amount,
         type: "ADMIN_ADJUSTMENT",
-        description: description || "Admin credit adjustment"
+        description: description || `Admin ${isBgCredit ? "BG removal" : "general"} credit adjustment`
       }
     })
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const updatedUserAny = updatedUser as any
 
     return NextResponse.json({
       message: "Credits added successfully",
       user: {
         id: updatedUser.id,
         email: updatedUser.email,
-        credits: updatedUser.credits
+        credits: updatedUser.credits,
+        bgRemovalCredits: updatedUserAny.bgRemovalCredits || 0
       }
     })
   } catch (error) {

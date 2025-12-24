@@ -17,6 +17,7 @@ interface User {
   name: string | null
   role: string
   credits: number
+  bgRemovalCredits: number
   isActive: boolean
   createdAt: string
   lastLoginAt: string | null
@@ -32,6 +33,7 @@ export default function UsersPage() {
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [editCredits, setEditCredits] = useState("")
+  const [editBgCredits, setEditBgCredits] = useState("")
   const [editRole, setEditRole] = useState("")
   const [isUpdating, setIsUpdating] = useState(false)
   const [updateError, setUpdateError] = useState("")
@@ -57,6 +59,7 @@ export default function UsersPage() {
   const handleEditUser = (user: User) => {
     setSelectedUser(user)
     setEditCredits(user.credits.toString())
+    setEditBgCredits((user.bgRemovalCredits || 0).toString())
     setEditRole(user.role)
     setUpdateError("")
     setIsEditDialogOpen(true)
@@ -67,8 +70,13 @@ export default function UsersPage() {
 
     // Validate credits input
     const credits = parseInt(editCredits)
+    const bgCredits = parseInt(editBgCredits)
     if (isNaN(credits) || credits < 0) {
-      setUpdateError("Please enter a valid number of credits (0 or greater)")
+      setUpdateError("Please enter a valid number of general credits (0 or greater)")
+      return
+    }
+    if (isNaN(bgCredits) || bgCredits < 0) {
+      setUpdateError("Please enter a valid number of BG removal credits (0 or greater)")
       return
     }
 
@@ -83,6 +91,7 @@ export default function UsersPage() {
         },
         body: JSON.stringify({
           credits: credits,
+          bgRemovalCredits: bgCredits,
           role: editRole,
         }),
       })
@@ -92,6 +101,7 @@ export default function UsersPage() {
         setIsEditDialogOpen(false)
         setSelectedUser(null)
         setEditCredits("")
+        setEditBgCredits("")
         setEditRole("")
       } else {
         const errorData = await response.json()
@@ -163,7 +173,7 @@ export default function UsersPage() {
               placeholder="Search users by email or name..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="max-w-sm"
+              className="max-w-sm text-slate-900"
             />
           </div>
 
@@ -172,7 +182,8 @@ export default function UsersPage() {
               <TableRow>
                 <TableHead>User</TableHead>
                 <TableHead>Role</TableHead>
-                <TableHead>Credits</TableHead>
+                <TableHead>General Credits</TableHead>
+                <TableHead>BG Credits</TableHead>
                 <TableHead>Images</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Last Login</TableHead>
@@ -194,6 +205,7 @@ export default function UsersPage() {
                     </Badge>
                   </TableCell>
                   <TableCell>{user.credits}</TableCell>
+                  <TableCell>{user.bgRemovalCredits || 0}</TableCell>
                   <TableCell>{user._count.imageDescriptions}</TableCell>
                   <TableCell>
                     <Badge variant={user.isActive ? "default" : "destructive"}>
@@ -201,7 +213,7 @@ export default function UsersPage() {
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    {user.lastLoginAt 
+                    {user.lastLoginAt
                       ? new Date(user.lastLoginAt).toLocaleDateString()
                       : "Never"
                     }
@@ -246,25 +258,39 @@ export default function UsersPage() {
               </div>
             )}
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="credits" className="text-right">
-                Credits
+              <Label htmlFor="credits" className="text-right text-slate-700">
+                General Credits
               </Label>
               <Input
                 id="credits"
                 type="number"
                 value={editCredits}
                 onChange={(e) => setEditCredits(e.target.value)}
-                className="col-span-3"
+                className="col-span-3 text-slate-900"
                 min="0"
                 disabled={isUpdating}
               />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="role" className="text-right">
+              <Label htmlFor="bgCredits" className="text-right text-slate-700">
+                BG Credits
+              </Label>
+              <Input
+                id="bgCredits"
+                type="number"
+                value={editBgCredits}
+                onChange={(e) => setEditBgCredits(e.target.value)}
+                className="col-span-3 text-slate-900"
+                min="0"
+                disabled={isUpdating}
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="role" className="text-right text-slate-700">
                 Role
               </Label>
               <Select value={editRole} onValueChange={setEditRole} disabled={isUpdating}>
-                <SelectTrigger className="col-span-3">
+                <SelectTrigger className="col-span-3 text-slate-900">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -275,8 +301,8 @@ export default function UsersPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => setIsEditDialogOpen(false)}
               disabled={isUpdating}
             >

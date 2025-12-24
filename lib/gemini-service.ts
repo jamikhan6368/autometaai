@@ -37,19 +37,58 @@ async function getGeminiClient(): Promise<GoogleGenerativeAI | null> {
 
 /**
  * Convert file to base64 for Gemini API
+ * Handles images, videos, and SVGs
  */
 async function fileToGenerativePart(file: File): Promise<{
     inlineData: { data: string; mimeType: string };
 }> {
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
+
+    // Determine the proper MIME type
+    let mimeType = file.type;
+
+    // Handle SVG files
+    if (file.name.toLowerCase().endsWith('.svg') || mimeType === 'image/svg+xml') {
+        // For SVG, we need to convert to a raster format
+        // Since we can't do server-side SVG rendering easily, 
+        // we'll send as image/png with the assumption Gemini can handle it
+        // or we'll use the original mime type
+        mimeType = 'image/svg+xml';
+    }
+
+    // Handle video files with proper MIME types
+    const videoExtensions: Record<string, string> = {
+        '.mp4': 'video/mp4',
+        '.mpeg': 'video/mpeg',
+        '.mpg': 'video/mpeg',
+        '.mov': 'video/mov',
+        '.avi': 'video/avi',
+        '.flv': 'video/x-flv',
+        '.webm': 'video/webm',
+        '.wmv': 'video/wmv',
+        '.3gp': 'video/3gpp',
+        '.3gpp': 'video/3gpp',
+    };
+
+    const ext = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
+    if (videoExtensions[ext]) {
+        mimeType = videoExtensions[ext];
+    }
+
+    // Default to image/jpeg if no type detected
+    if (!mimeType) {
+        mimeType = 'image/jpeg';
+    }
+
     return {
         inlineData: {
             data: buffer.toString('base64'),
-            mimeType: file.type || 'image/jpeg',
+            mimeType,
         },
     };
 }
+
 
 /**
  * Describe an image using Gemini Vision
@@ -96,6 +135,8 @@ export async function generateMetadataWithGemini(
         whiteBackground?: boolean;
         transparentBackground?: boolean;
         prohibitedWords?: string;
+        isVideo?: boolean;
+        isSvg?: boolean;
     } = {}
 ): Promise<GeminiMetadataResult> {
     const genAI = await getGeminiClient();
@@ -112,6 +153,8 @@ export async function generateMetadataWithGemini(
         whiteBackground = false,
         transparentBackground = false,
         prohibitedWords = '',
+        isVideo = false,
+        isSvg = false,
     } = options;
 
     const model = genAI.getGenerativeModel({
@@ -120,7 +163,7 @@ export async function generateMetadataWithGemini(
             responseMimeType: 'application/json',
         },
     });
-    const imagePart = await fileToGenerativePart(file);
+    const mediaPart = await fileToGenerativePart(file);
 
     const categories = `1. Animals, 2. Buildings and Architecture, 3. Business, 4. Drinks, 5. The Environment, 6. States of Mind, 7. Food, 8. Graphic Resources, 9. Hobbies and Leisure, 10. Industry, 11. Landscape, 12. Lifestyle, 13. People, 14. Plants and Flowers, 15. Culture and Religion, 16. Science, 17. Social Issues, 18. Sports, 19. Technology, 20. Transport, 21. Travel`;
 
@@ -132,25 +175,34 @@ export async function generateMetadataWithGemini(
     if (isSilhouette) instructions.push('This is a silhouette.');
     if (whiteBackground) instructions.push('This has a white background.');
     if (transparentBackground) instructions.push('This has a transparent background.');
+    if (isVideo) instructions.push('This is a video file - analyze the visual content from the video frames.');
+    if (isSvg) instructions.push('This is an SVG vector graphic.');
 
     const instructionsText = instructions.length > 0 ? `\nInfo: ${instructions.join(' ')}` : '';
     const customPromptText = customPrompt ? `\nCustom: ${customPrompt}` : '';
     const prohibitedText = prohibitedWords ? `\nAvoid these words: ${prohibitedWords}` : '';
 
-    const prompt = `Analyze this image for Adobe Stock metadata.
+    // Adjust content type in prompt based on file type
+    const contentType = isVideo ? 'video' : (isSvg ? 'SVG graphic' : 'image');
+
+    const prompt = `Analyze this ${contentType} for Adobe Stock metadata.
 
 1. Generate a descriptive Title (aim for ${titleLength} characters). To meet this length, describe the subject, action, setting, lighting, and mood in detail. Do not be concise.
    STRICTLY FORBIDDEN: Do NOT use any special characters (like - / : ; ( ) & !) in the Title. Use ONLY letters, numbers, and spaces.
    ${transparentBackground ? 'Append "isolated on transparent background" to the title.' : ''}
+   ${isVideo ? 'For video, describe the main action or scene shown.' : ''}
+   ${isSvg ? 'For SVG, describe the vector graphic design elements.' : ''}
 
 2. ${keywordInstruction} Comma separated.
    STRICTLY FORBIDDEN: Do NOT use special characters in keywords.
+   ${isVideo ? 'Include keywords related to motion, video, footage, and the visual content.' : ''}
+   ${isSvg ? 'Include keywords like vector, svg, graphic, illustration, design.' : ''}
 
 3. Choose Category ID from: ${categories}${instructionsText}${customPromptText}${prohibitedText}
 
 Return JSON with: "title", "keywords", "category_id" (number).`;
 
-    const result = await model.generateContent([prompt, imagePart]);
+    const result = await model.generateContent([prompt, mediaPart]);
     const response = await result.response;
     const text = response.text();
 

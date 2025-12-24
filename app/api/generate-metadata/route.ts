@@ -70,6 +70,8 @@ export async function POST(request: NextRequest) {
       whiteBackground,
       transparentBackground,
       prohibitedWords,
+      isVideo,
+      isSvg,
     });
 
     let title = (geminiResult.title || '').replace(/[^\w\s]/g, '').trim();
