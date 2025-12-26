@@ -44,7 +44,7 @@ export default function RunwayPromptPage() {
     accept: {
       'image/*': ['.png', '.jpg', '.jpeg', '.webp']
     },
-    maxSize: 10 * 1024 * 1024,
+    maxSize: 25 * 1024 * 1024,
   });
 
   const removeFile = (index: number) => {
@@ -217,7 +217,7 @@ export default function RunwayPromptPage() {
                 </p>
                 <p className="text-sm text-slate-500 mb-4">or click to browse</p>
                 <p className="text-xs text-slate-400">
-                  Supports: JPG, PNG, WEBP &ndash; Max 10MB per file
+                  Supports: JPG, PNG, WEBP &ndash; Max 25MB per file
                 </p>
               </div>
 

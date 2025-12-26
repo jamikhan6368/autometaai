@@ -37,7 +37,7 @@ async function getGeminiClient(): Promise<GoogleGenerativeAI | null> {
 
 /**
  * Convert file to base64 for Gemini API
- * Handles images, videos, and SVGs
+ * Handles images and SVGs (videos are pre-processed on client side)
  */
 async function fileToGenerativePart(file: File): Promise<{
     inlineData: { data: string; mimeType: string };
@@ -50,30 +50,7 @@ async function fileToGenerativePart(file: File): Promise<{
 
     // Handle SVG files
     if (file.name.toLowerCase().endsWith('.svg') || mimeType === 'image/svg+xml') {
-        // For SVG, we need to convert to a raster format
-        // Since we can't do server-side SVG rendering easily, 
-        // we'll send as image/png with the assumption Gemini can handle it
-        // or we'll use the original mime type
         mimeType = 'image/svg+xml';
-    }
-
-    // Handle video files with proper MIME types
-    const videoExtensions: Record<string, string> = {
-        '.mp4': 'video/mp4',
-        '.mpeg': 'video/mpeg',
-        '.mpg': 'video/mpeg',
-        '.mov': 'video/mov',
-        '.avi': 'video/avi',
-        '.flv': 'video/x-flv',
-        '.webm': 'video/webm',
-        '.wmv': 'video/wmv',
-        '.3gp': 'video/3gpp',
-        '.3gpp': 'video/3gpp',
-    };
-
-    const ext = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
-    if (videoExtensions[ext]) {
-        mimeType = videoExtensions[ext];
     }
 
     // Default to image/jpeg if no type detected
@@ -181,35 +158,36 @@ export async function generateMetadataWithGemini(
         isSvg = false,
     } = options;
 
-    const model = genAI.getGenerativeModel({
-        model: 'gemini-2.0-flash',
-        generationConfig: {
-            responseMimeType: 'application/json',
-        },
-    });
-    const mediaPart = await fileToGenerativePart(file);
+    try {
+        const model = genAI.getGenerativeModel({
+            model: 'gemini-2.5-flash',
+            generationConfig: {
+                responseMimeType: 'application/json',
+            },
+        });
+        const mediaPart = await fileToGenerativePart(file);
 
-    const categories = `1. Animals, 2. Buildings and Architecture, 3. Business, 4. Drinks, 5. The Environment, 6. States of Mind, 7. Food, 8. Graphic Resources, 9. Hobbies and Leisure, 10. Industry, 11. Landscape, 12. Lifestyle, 13. People, 14. Plants and Flowers, 15. Culture and Religion, 16. Science, 17. Social Issues, 18. Sports, 19. Technology, 20. Transport, 21. Travel`;
+        const categories = `1. Animals, 2. Buildings and Architecture, 3. Business, 4. Drinks, 5. The Environment, 6. States of Mind, 7. Food, 8. Graphic Resources, 9. Hobbies and Leisure, 10. Industry, 11. Landscape, 12. Lifestyle, 13. People, 14. Plants and Flowers, 15. Culture and Religion, 16. Science, 17. Social Issues, 18. Sports, 19. Technology, 20. Transport, 21. Travel`;
 
-    const keywordInstruction = singleWordKeywords
-        ? `Generate exactly ${keywordCount} SINGLE-WORD keywords only.`
-        : `Generate exactly ${keywordCount} relevant keywords.`;
+        const keywordInstruction = singleWordKeywords
+            ? `Generate exactly ${keywordCount} SINGLE-WORD keywords only.`
+            : `Generate exactly ${keywordCount} relevant keywords.`;
 
-    const instructions: string[] = [];
-    if (isSilhouette) instructions.push('This is a silhouette.');
-    if (whiteBackground) instructions.push('This has a white background.');
-    if (transparentBackground) instructions.push('This has a transparent background.');
-    if (isVideo) instructions.push('This is a video file - analyze the visual content from the video frames.');
-    if (isSvg) instructions.push('This is an SVG vector graphic.');
+        const instructions: string[] = [];
+        if (isSilhouette) instructions.push('This is a silhouette.');
+        if (whiteBackground) instructions.push('This has a white background.');
+        if (transparentBackground) instructions.push('This has a transparent background.');
+        if (isVideo) instructions.push('This is a video file - analyze the visual content from the video frames.');
+        if (isSvg) instructions.push('This is an SVG vector graphic.');
 
-    const instructionsText = instructions.length > 0 ? `\nInfo: ${instructions.join(' ')}` : '';
-    const customPromptText = customPrompt ? `\nCustom: ${customPrompt}` : '';
-    const prohibitedText = prohibitedWords ? `\nAvoid these words: ${prohibitedWords}` : '';
+        const instructionsText = instructions.length > 0 ? `\nInfo: ${instructions.join(' ')}` : '';
+        const customPromptText = customPrompt ? `\nCustom: ${customPrompt}` : '';
+        const prohibitedText = prohibitedWords ? `\nAvoid these words: ${prohibitedWords}` : '';
 
-    // Adjust content type in prompt based on file type
-    const contentType = isVideo ? 'video' : (isSvg ? 'SVG graphic' : 'image');
+        // Adjust content type in prompt based on file type
+        const contentType = isVideo ? 'video' : (isSvg ? 'SVG graphic' : 'image');
 
-    const prompt = `Analyze this ${contentType} for Adobe Stock metadata.
+        const prompt = `Analyze this ${contentType} for Adobe Stock metadata.
 
 1. Generate a descriptive Title (aim for ${titleLength} characters). To meet this length, describe the subject, action, setting, lighting, and mood in detail. Do not be concise.
    STRICTLY FORBIDDEN: Do NOT use any special characters (like - / : ; ( ) & !) in the Title. Use ONLY letters, numbers, and spaces.
@@ -226,16 +204,53 @@ export async function generateMetadataWithGemini(
 
 Return JSON with: "title", "keywords", "category_id" (number).`;
 
-    const result = await model.generateContent([prompt, mediaPart]);
-    const response = await result.response;
-    const text = response.text();
+        const result = await model.generateContent([prompt, mediaPart]);
+        const response = await result.response;
+        const text = response.text();
 
-    const parsed = JSON.parse(text);
-    return {
-        title: parsed.title || '',
-        keywords: parsed.keywords || '',
-        category_id: parsed.category_id || 1,
-    };
+        const parsed = JSON.parse(text);
+        return {
+            title: parsed.title || '',
+            keywords: parsed.keywords || '',
+            category_id: parsed.category_id || 1,
+        };
+    } catch (error: any) {
+        // Handle specific Gemini API errors
+        const errorMessage = error?.message || String(error);
+
+        if (errorMessage.includes('Forbidden') || errorMessage.includes('403')) {
+            if (isVideo) {
+                throw new Error('Video file rejected by Gemini API. This may be due to format (use MP4/MOV) or content restrictions. Please try a different video.');
+            }
+            throw new Error('Gemini API access forbidden. Please check your API key permissions or try again later.');
+        }
+
+        if (errorMessage.includes('QUOTA_EXCEEDED') || errorMessage.includes('429')) {
+            throw new Error('Gemini API rate limit exceeded. Please wait a moment and try again.');
+        }
+
+        if (errorMessage.includes('INVALID_API_KEY') || errorMessage.includes('401')) {
+            throw new Error('Invalid Gemini API key. Please check your API key in settings.');
+        }
+
+        if (errorMessage.includes('SAFETY')) {
+            throw new Error('Content flagged by Gemini safety filters. Please try a different file.');
+        }
+
+        if (errorMessage.includes('File size') || errorMessage.includes('too large')) {
+            throw new Error(`File too large for Gemini API. Try reducing file size to under 150MB.`);
+        }
+
+        if (errorMessage.includes('Unsupported') || errorMessage.includes('format')) {
+            if (isVideo) {
+                throw new Error('Unsupported video format. Please use MP4, MOV, AVI, or WEBM format.');
+            }
+            throw new Error('Unsupported file format. Please use JPG, PNG, WEBP, or SVG.');
+        }
+
+        console.error('Gemini metadata generation error:', error);
+        throw new Error(`Gemini API error: ${errorMessage}`);
+    }
 }
 
 /**
@@ -248,7 +263,7 @@ export async function generateRunwayPromptsWithGemini(file: File): Promise<Gemin
     }
 
     const model = genAI.getGenerativeModel({
-        model: 'gemini-2.0-flash',
+        model: 'gemini-2.5-flash',
         generationConfig: {
             responseMimeType: 'application/json',
         },

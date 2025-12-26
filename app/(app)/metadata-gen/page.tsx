@@ -62,12 +62,45 @@ export default function MetadataGenPage() {
 
       video.onseeked = () => {
         const canvas = document.createElement('canvas');
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
+        
+        // Set canvas size - limit to reasonable dimensions for compression
+        const maxWidth = 1280;
+        const maxHeight = 720;
+        
+        let { videoWidth, videoHeight } = video;
+        
+        // Calculate aspect ratio and resize if needed
+        if (videoWidth > maxWidth || videoHeight > maxHeight) {
+          const aspectRatio = videoWidth / videoHeight;
+          if (videoWidth > videoHeight) {
+            videoWidth = maxWidth;
+            videoHeight = maxWidth / aspectRatio;
+          } else {
+            videoHeight = maxHeight;
+            videoWidth = maxHeight * aspectRatio;
+          }
+        }
+        
+        canvas.width = videoWidth;
+        canvas.height = videoHeight;
+        
         const ctx = canvas.getContext('2d');
         if (ctx) {
-          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-          resolve(canvas.toDataURL('image/jpeg'));
+          ctx.drawImage(video, 0, 0, videoWidth, videoHeight);
+          
+          // Convert to compressed JPEG with quality setting
+          const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.7); // 70% quality
+          
+          // Check compressed size and further reduce if needed
+          const base64Data = compressedDataUrl.split(',')[1];
+          const sizeInKB = (base64Data.length * 3) / 4 / 1024; // Approximate size in KB
+          
+          if (sizeInKB > 500) { // If still larger than 500KB, compress more
+            const furtherCompressed = canvas.toDataURL('image/jpeg', 0.5); // 50% quality
+            resolve(furtherCompressed);
+          } else {
+            resolve(compressedDataUrl);
+          }
         } else {
           reject(new Error('Failed to get canvas context'));
         }
@@ -81,6 +114,19 @@ export default function MetadataGenPage() {
 
       video.load();
     });
+  };
+
+  // Convert data URL to File object
+  const dataURLtoFile = (dataurl: string, filename: string): File => {
+    const arr = dataurl.split(',');
+    const mime = arr[0].match(/:(.*?);/)?.[1] || 'image/jpeg';
+    const bstr = atob(arr[1]);
+    let n = bstr.length;
+    const u8arr = new Uint8Array(n);
+    while (n--) {
+      u8arr[n] = bstr.charCodeAt(n);
+    }
+    return new File([u8arr], filename, { type: mime });
   };
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
@@ -130,7 +176,7 @@ export default function MetadataGenPage() {
       'image/*': ['.png', '.jpg', '.jpeg', '.webp', '.svg'],
       'video/*': ['.mp4', '.mov', '.avi', '.webm']
     },
-    maxSize: 50 * 1024 * 1024, // 50MB for videos
+    maxSize: 150 * 1024 * 1024, // 150MB for videos
   });
 
   const removeFile = (index: number) => {
@@ -158,7 +204,20 @@ export default function MetadataGenPage() {
 
           const file = selectedFiles[i];
           const formData = new FormData();
-          formData.append('image', file);
+          
+          // For videos, extract and compress frame before sending
+          let fileToSend = file;
+          if (file.isVideo) {
+            try {
+              const frameDataUrl = await extractVideoFrame(file);
+              fileToSend = dataURLtoFile(frameDataUrl, `${file.name}_frame.jpg`);
+            } catch (err) {
+              console.error('Failed to extract video frame:', err);
+              // Fall back to original file if frame extraction fails
+            }
+          }
+          
+          formData.append('image', fileToSend);
           formData.append('isVideo', (file.isVideo || false).toString());
           formData.append('isSvg', (file.isSvg || false).toString());
           formData.append('titleLength', titleLength.toString());
@@ -218,7 +277,20 @@ export default function MetadataGenPage() {
         // Use single API for one image
         const file = selectedFiles[0];
         const formData = new FormData();
-        formData.append('image', file);
+        
+        // For videos, extract and compress frame before sending
+        let fileToSend = file;
+        if (file.isVideo) {
+          try {
+            const frameDataUrl = await extractVideoFrame(file);
+            fileToSend = dataURLtoFile(frameDataUrl, `${file.name}_frame.jpg`);
+          } catch (err) {
+            console.error('Failed to extract video frame:', err);
+            // Fall back to original file if frame extraction fails
+          }
+        }
+        
+        formData.append('image', fileToSend);
         formData.append('isVideo', (file.isVideo || false).toString());
         formData.append('isSvg', (file.isSvg || false).toString());
         formData.append('titleLength', titleLength.toString());
@@ -341,7 +413,7 @@ export default function MetadataGenPage() {
                 </p>
                 <p className="text-sm text-slate-500 mb-4">or click to browse</p>
                 <p className="text-xs text-slate-400">
-                  Supports: JPG, PNG, WEBP, SVG, MP4, MOV, AVI, WEBM (Max 50MB per file)
+                  Supports: JPG, PNG, WEBP, SVG, MP4, MOV, AVI, WEBM (Max 150MB per file)
                 </p>
               </div>
 

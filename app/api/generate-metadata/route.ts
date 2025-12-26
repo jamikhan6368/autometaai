@@ -51,6 +51,23 @@ export async function POST(request: NextRequest) {
     const keywordCount = parseInt(formData.get('keywordCount') as string) || 45;
     const singleWordKeywords = formData.get('singleWordKeywords') === 'true';
 
+    // Validate file
+    if (!imageFile) {
+      return NextResponse.json({ error: 'No file provided' }, { status: 400 });
+    }
+
+    // Check file size - since we're now sending compressed frames for videos, 
+    // the file size should be much smaller, but keep a reasonable limit
+    const maxSize = 10 * 1024 * 1024; // 10MB should be more than enough for compressed frames
+    if (imageFile.size > maxSize) {
+      return NextResponse.json(
+        { 
+          error: `File too large. Maximum size is 10MB. Your file is ${(imageFile.size / 1024 / 1024).toFixed(1)}MB.` 
+        },
+        { status: 400 }
+      );
+    }
+
     // Advanced settings
     const isSilhouette = formData.get('isSilhouette') === 'true';
     const customPrompt = (formData.get('customPrompt') as string) || '';
