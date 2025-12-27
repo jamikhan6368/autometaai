@@ -60,14 +60,18 @@ export async function POST(request: NextRequest) {
     const batchSize = Math.min(imageFiles.length, 10);
     const imagesToProcess = imageFiles.slice(0, batchSize);
 
+    // Credit cost per image
+    const CREDITS_PER_IMAGE = 3;
+    const requiredCredits = batchSize * CREDITS_PER_IMAGE;
+
     // Check if user has enough credits
-    if (user.credits < batchSize) {
+    if (user.credits < requiredCredits) {
       return NextResponse.json(
         {
           error: 'Insufficient credits',
-          required: batchSize,
+          required: requiredCredits,
           available: user.credits,
-          message: `You need ${batchSize} credits to process ${batchSize} images.`
+          message: `You need ${requiredCredits} credits (${CREDITS_PER_IMAGE} per image × ${batchSize} images).`
         },
         { status: 402 }
       );
@@ -155,7 +159,8 @@ export async function POST(request: NextRequest) {
 
     // Deduct credits only for successfully processed images
     if (successfulProcessing > 0) {
-      const creditResult = await deductCredits(user.id, successfulProcessing);
+      const creditsToDeduct = successfulProcessing * CREDITS_PER_IMAGE;
+      const creditResult = await deductCredits(user.id, creditsToDeduct);
 
       if (!creditResult.success) {
         return NextResponse.json(
@@ -191,7 +196,7 @@ export async function POST(request: NextRequest) {
         results,
         processed: successfulProcessing,
         total: imagesToProcess.length,
-        creditsUsed: successfulProcessing,
+        creditsUsed: creditsToDeduct,
         creditsRemaining: creditResult.credits,
       });
     } else {

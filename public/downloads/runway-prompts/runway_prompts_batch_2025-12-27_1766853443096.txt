@@ -1,0 +1,22 @@
+Runway Prompts - Batch Processing
+==================================
+
+Total Images: 1
+
+================================================================================
+
+[1] WhatsApp Image 2025-12-24 at 4.06.36 AM.jpeg
+--------------------------------------------------------------------------------
+Low Motion:
+a smooth dolly camera moves slowly toward a gentle push-in camera moves slowly toward the soft blue baby blanket with 'Nico' and a detailed motorcycle embroidery resting peacefully on a crib as soft morning light illuminates it cinematic live-action cinematic live-action
+
+Medium Motion:
+a steady tracking camera moves forward toward a steady tracking shot camera moves moderately toward the plush baby blanket displaying the embroidered motorcycle being gently pulled by a baby's curious hand, revealing more of the design cinematic live-action cinematic live-action
+
+High Motion:
+a dynamic handheld camera moves quickly toward a rapid crane shot camera moves quickly toward the baby blanket with the motorcycle embroidery being playfully pulled off a bed, momentarily catching air before falling into a heap cinematic live-action cinematic live-action
+
+
+================================================================================
+
+

@@ -41,14 +41,20 @@ export async function POST(request: NextRequest) {
     const batchSize = Math.min(imageFiles.length, 10);
     const imagesToProcess = imageFiles.slice(0, batchSize);
 
+    // Different credit costs based on provider
+    const GEMINI_CREDITS_PER_IMAGE = 3;
+    const IDEOGRAM_CREDITS_PER_IMAGE = 20;
+    const creditsPerImage = aiProvider === 'gemini' ? GEMINI_CREDITS_PER_IMAGE : IDEOGRAM_CREDITS_PER_IMAGE;
+    const requiredCredits = batchSize * creditsPerImage;
+
     // Check if user has enough credits
-    if (user.credits < batchSize) {
+    if (user.credits < requiredCredits) {
       return NextResponse.json(
         {
           error: 'Insufficient credits',
-          required: batchSize,
+          required: requiredCredits,
           available: user.credits,
-          message: `You need ${batchSize} credits to process ${batchSize} images.`
+          message: `You need ${requiredCredits} credits (${creditsPerImage} per image × ${batchSize} images) to process with ${aiProvider}.`
         },
         { status: 402 }
       );
@@ -179,7 +185,9 @@ export async function POST(request: NextRequest) {
 
     // Deduct credits only for successfully processed images
     if (successfulProcessing > 0) {
-      await deductCredits(user.id, successfulProcessing, 'Batch image description');
+      // Calculate credits based on provider
+      const creditsToDeduct = successfulProcessing * creditsPerImage;
+      await deductCredits(user.id, creditsToDeduct, `Batch image description (${aiProvider}: ${successfulProcessing} images × ${creditsPerImage} credits)`);
 
       // Get updated user credits
       const updatedUser = await prisma.user.findUnique({
@@ -191,7 +199,7 @@ export async function POST(request: NextRequest) {
         results,
         processed: successfulProcessing,
         total: imagesToProcess.length,
-        creditsUsed: successfulProcessing,
+        creditsUsed: creditsToDeduct,
         creditsRemaining: updatedUser?.credits || 0,
       });
     } else {

@@ -347,12 +347,10 @@ export default function DescribePage() {
     if (results.length === 0) return;
 
     const csvContent = [
-      ['Filename', 'Description', 'Confidence', 'Source'],
-      ...results.map(r => [
-        r.filename,
-        r.description || '',
-        r.confidence?.toString() || '0',
-        r.source || ''
+      ['#', 'Description'],
+      ...results.map((r, index) => [
+        (index + 1).toString(),
+        r.description || ''
       ])
     ].map(row => row.map(cell => `"${cell.replace(/"/g, '""')}"`).join(',')).join('\n');
 
@@ -361,6 +359,22 @@ export default function DescribePage() {
     const link = document.createElement('a');
     link.href = url;
     link.download = 'image_descriptions.csv';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const exportToText = () => {
+    if (results.length === 0) return;
+
+    // Just descriptions, one per line
+    const textContent = results.map(r => r.description || '').join('\n\n');
+
+    const blob = new Blob([textContent], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'image_descriptions.txt';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -558,6 +572,18 @@ export default function DescribePage() {
                   >
                     <HugeiconsIcon icon={Download01Icon} size={20} className="mr-2" />
                     Export to CSV
+                  </Button>
+                )}
+
+                {results.length > 0 && (
+                  <Button
+                    variant="outline"
+                    size="lg"
+                    onClick={exportToText}
+                    className="w-full border-slate-300 text-slate-700 hover:bg-slate-50"
+                  >
+                    <HugeiconsIcon icon={Download01Icon} size={20} className="mr-2" />
+                    Export to Text
                   </Button>
                 )}
               </div>

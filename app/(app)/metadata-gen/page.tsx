@@ -970,7 +970,6 @@ export default function MetadataGenPage() {
                           <div className="space-y-3">
                             {[
                               { label: 'Title', value: result.title, color: 'from-cyan-500 to-blue-500' },
-                              { label: 'Category', value: result.category, color: 'from-blue-500 to-indigo-500' },
                               { label: 'Keywords', value: result.keywords, color: 'from-indigo-500 to-purple-500' }
                             ].map((item, i) => (
                               <div key={i}>
