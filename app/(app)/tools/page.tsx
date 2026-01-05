@@ -86,11 +86,10 @@ export default function ToolsPage() {
                     <div className="flex items-center gap-3 mb-2 flex-wrap">
                       <h2 className="text-2xl font-bold text-slate-900">{tool.name}</h2>
                       {tool.badge && (
-                        <span className={`px-3 py-1 text-white text-xs font-bold rounded-full ${
-                          tool.badge === 'New' 
-                            ? 'bg-gradient-to-r from-green-400 to-emerald-500' 
+                        <span className={`px-3 py-1 text-white text-xs font-bold rounded-full ${tool.badge === 'New'
+                            ? 'bg-gradient-to-r from-green-400 to-emerald-500'
                             : 'bg-gradient-to-r from-amber-400 to-orange-500'
-                        }`}>
+                          }`}>
                           {tool.badge}
                         </span>
                       )}

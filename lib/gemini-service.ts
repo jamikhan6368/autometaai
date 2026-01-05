@@ -277,6 +277,7 @@ function getDescribeInstruction(): string {
   return `You see a still image. Write a detailed, natural-language description of the image suitable as a high-quality text prompt for an image-to-image or image generation model.
 
 REQUIREMENTS:
+- Do NOT include any intro like "Here is a description" or "This image shows" or "Here is a prompt". Start directly with the description.
 - 1 single paragraph, roughly 80–220 words.
 - Professional, clear, neutral English.
 - Describe:
