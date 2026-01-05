@@ -7,7 +7,7 @@ import { useSession, signOut } from '@/lib/auth-client';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { HugeiconsIcon } from '@hugeicons/react';
-import { TextIcon, ShoppingBasket01Icon, Logout01Icon, Image02Icon, VideoIcon, FileEditIcon, Invoice01Icon, FlashIcon, PaintBoardIcon } from '@hugeicons/core-free-icons';
+import { TextIcon, ShoppingBasket01Icon, Logout01Icon, Image02Icon, VideoIcon, FileEditIcon, Invoice01Icon, FlashIcon, PaintBoardIcon, ToolsIcon } from '@hugeicons/core-free-icons';
 
 interface UserWithCredits {
   credits?: number;
@@ -50,6 +50,11 @@ const Sidebar = () => {
       name: 'Payment Requests',
       href: '/payment-requests',
       icon: <HugeiconsIcon icon={Invoice01Icon} size={20} strokeWidth={2} />
+    },
+    {
+      name: 'Tools',
+      href: '/tools',
+      icon: <HugeiconsIcon icon={ToolsIcon} size={20} strokeWidth={2} />
     }
   ];
 

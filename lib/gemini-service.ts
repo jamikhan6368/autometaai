@@ -381,7 +381,7 @@ export async function describeImageWithGemini(file: File): Promise<GeminiDescrip
   }
 
   try {
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
     const imagePart = await fileToGenerativePart(file);
 
     const prompt = getDescribeInstruction();
@@ -478,7 +478,24 @@ export async function generateMetadataWithGemini(
     const response = await result.response;
     const text = response.text();
 
-    const parsed = JSON.parse(text);
+    // Check if response looks like an error message instead of JSON
+    if (!text || text.trim().startsWith('Forbidden') || text.trim().startsWith('Error')) {
+      throw new Error(isVideo ? 'Video content rejected by API. Try a different video.' : 'Content rejected by API.');
+    }
+
+    // Try to parse JSON, with fallback error handling
+    let parsed;
+    try {
+      // Clean the response - remove markdown code blocks if present
+      const cleanText = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+      parsed = JSON.parse(cleanText);
+    } catch (parseError) {
+      console.error('JSON parse error. Raw response:', text.substring(0, 200));
+      throw new Error(isVideo
+        ? 'Failed to process video. The video frame may be unclear or rejected.'
+        : 'Failed to parse API response. Please try again.');
+    }
+
     return {
       title: parsed.title || '',
       keywords: parsed.keywords || '',
@@ -487,24 +504,31 @@ export async function generateMetadataWithGemini(
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
 
+    // Check for specific error patterns
     if (errorMessage.includes('Forbidden') || errorMessage.includes('403')) {
       if (isVideo) {
-        throw new Error('Video file rejected by Gemini API. Please try a different video.');
+        throw new Error('Video rejected by API. Try extracting a clearer frame or use a different video.');
       }
-      throw new Error('Gemini API access forbidden. Please check your API key permissions.');
+      throw new Error('Content rejected by API. Please check your API key permissions.');
     }
     if (errorMessage.includes('QUOTA_EXCEEDED') || errorMessage.includes('429')) {
-      throw new Error('Gemini API rate limit exceeded. Please wait a moment and try again.');
+      throw new Error('Rate limit exceeded. Please wait a moment and try again.');
     }
     if (errorMessage.includes('INVALID_API_KEY') || errorMessage.includes('401')) {
-      throw new Error('Invalid Gemini API key. Please check your API key in settings.');
+      throw new Error('Invalid API key. Please check your settings.');
     }
-    if (errorMessage.includes('SAFETY')) {
-      throw new Error('Content flagged by Gemini safety filters. Please try a different file.');
+    if (errorMessage.includes('SAFETY') || errorMessage.includes('blocked')) {
+      throw new Error('Content flagged by safety filters. Please try a different file.');
+    }
+    if (errorMessage.includes('Unexpected token')) {
+      if (isVideo) {
+        throw new Error('Video processing failed. Try a different video or check video quality.');
+      }
+      throw new Error('API returned invalid response. Please try again.');
     }
 
     console.error('Gemini metadata generation error:', error);
-    throw new Error(`Gemini API error: ${errorMessage}`);
+    throw new Error(errorMessage || 'Failed to generate metadata');
   }
 }
 
@@ -532,7 +556,19 @@ export async function generateRunwayPromptsWithGemini(file: File): Promise<Gemin
     const response = await result.response;
     const text = response.text();
 
-    const rawJson = JSON.parse(text);
+    // Check for error responses
+    if (!text || text.trim().startsWith('Forbidden') || text.trim().startsWith('Error')) {
+      throw new Error('Content rejected by API. Please try a different image.');
+    }
+
+    let rawJson;
+    try {
+      const cleanText = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+      rawJson = JSON.parse(cleanText);
+    } catch (parseError) {
+      console.error('JSON parse error. Raw response:', text.substring(0, 200));
+      throw new Error('Failed to parse API response. Please try again.');
+    }
 
     // Apply fine-tuned camera selection and prompt building
     const low = buildRunwayPrompt('low', rawJson.low || '');
@@ -544,19 +580,22 @@ export async function generateRunwayPromptsWithGemini(file: File): Promise<Gemin
     const errorMessage = error instanceof Error ? error.message : String(error);
 
     if (errorMessage.includes('Forbidden') || errorMessage.includes('403')) {
-      throw new Error('Gemini API access forbidden. Please check your API key permissions.');
+      throw new Error('Content rejected by API. Please check your API key permissions.');
     }
     if (errorMessage.includes('QUOTA_EXCEEDED') || errorMessage.includes('429')) {
-      throw new Error('Gemini API rate limit exceeded. Please wait a moment and try again.');
+      throw new Error('Rate limit exceeded. Please wait a moment and try again.');
     }
     if (errorMessage.includes('INVALID_API_KEY') || errorMessage.includes('401')) {
-      throw new Error('Invalid Gemini API key. Please check your API key in settings.');
+      throw new Error('Invalid API key. Please check your settings.');
     }
-    if (errorMessage.includes('SAFETY')) {
-      throw new Error('Image flagged by Gemini safety filters. Please try a different image.');
+    if (errorMessage.includes('SAFETY') || errorMessage.includes('blocked')) {
+      throw new Error('Image flagged by safety filters. Please try a different image.');
+    }
+    if (errorMessage.includes('Unexpected token')) {
+      throw new Error('API returned invalid response. Please try again.');
     }
 
     console.error('Gemini runway prompt error:', error);
-    throw new Error(`Gemini API error: ${errorMessage}`);
+    throw new Error(errorMessage || 'Failed to generate prompts');
   }
 }
