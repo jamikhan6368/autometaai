@@ -37,7 +37,7 @@ const TOOLS: Tool[] = [
     name: 'Ideogram Flow',
     description: 'Supercharge your Ideogram AI workflow with automated image generation, batch processing, and seamless prompt management.',
     type: 'extension',
-    downloadUrl: 'https://drive.usercontent.google.com/u/0/uc?id=1jL89XS1ztODUYGqAs8rIcMUYxlHk4Dbh&export=download',
+    downloadUrl: 'https://drive.usercontent.google.com/u/0/uc?id=1ZVxs-nk3bafwNqHusrYDEcfJGndYeoVN&export=download',
     icon: '🎨',
     features: [
       'Batch image generation',
