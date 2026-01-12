@@ -34,10 +34,10 @@ const TOOLS: Tool[] = [
   },
   {
     id: 'ideogram-flow',
-    name: 'Ideogram Flow',
+    name: 'Ideogram Automation',
     description: 'Supercharge your Ideogram AI workflow with automated image generation, batch processing, and seamless prompt management.',
     type: 'extension',
-    downloadUrl: 'https://drive.usercontent.google.com/u/0/uc?id=12cG2nIhVKDavCpIFPf7A32uT2VqWe1XC&export=download',
+    downloadUrl: 'https://drive.usercontent.google.com/u/0/uc?id=1ZVxs-nk3bafwNqHusrYDEcfJGndYeoVN&export=download',
     icon: '🎨',
     features: [
       'Batch image generation',
@@ -132,10 +132,29 @@ export default function ToolsPage() {
         </div>
 
         {/* Coming Soon Section */}
-        <div className="mt-12 text-center">
+        <div className="mt-8">
+          <div className="bg-gradient-to-r from-slate-100 to-slate-50 rounded-2xl border border-slate-200 p-6">
+            <div className="flex items-center gap-4">
+              <div className="w-16 h-16 bg-gradient-to-br from-cyan-500 to-blue-500 rounded-xl flex items-center justify-center text-3xl shadow-md opacity-60">
+                ⚡
+              </div>
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <h3 className="text-lg font-bold text-slate-700">Flow Extension</h3>
+                  <span className="px-2 py-0.5 bg-cyan-100 text-cyan-700 text-xs font-semibold rounded-full">
+                    Coming Soon
+                  </span>
+                </div>
+                <p className="text-slate-500 text-sm">Stay tuned for our next powerful automation tool.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-6 text-center">
           <div className="inline-flex items-center gap-2 px-4 py-2 bg-slate-100 rounded-full text-slate-600 text-sm">
             <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-            More tools coming soon...
+            More tools in development...
           </div>
         </div>
       </div>
