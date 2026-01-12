@@ -773,7 +773,7 @@ export default function MetadataGenPage() {
                                 <HugeiconsIcon icon={Copy01Icon} size={14} />
                               </button>
                             </div>
-                            <p className="text-sm text-slate-700 line-clamp-2">{value}</p>
+                            <p className={`text-sm text-slate-700 ${label === 'Keywords' ? 'line-clamp-3' : ''}`}>{value}</p>
                           </div>
                         ))}
                       </div>
