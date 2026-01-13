@@ -48,6 +48,22 @@ const TOOLS: Tool[] = [
     ],
     badge: 'New',
   },
+  {
+    id: 'labs-flow-x',
+    name: 'Labs Flow X',
+    description: 'The ultimate automation suite for Google Labs (ImageFX). Features intelligent batch processing, smart delays (10s/50s), network protection, and a premium titanium interface.',
+    type: 'extension',
+    downloadUrl: 'https://drive.usercontent.google.com/u/0/uc?id=1QHY5DhdD3aeXFpN0I8nxMuczD44rPd_G&export=download',
+    icon: '🧪',
+    features: [
+      'Batch Prompt Queue',
+      'Smart Delays (10s/50s)',
+      'Network Guard',
+      'Auto-Resume',
+      'Titanium Glass UI',
+    ],
+    badge: 'Trending',
+  },
 ];
 
 export default function ToolsPage() {
@@ -86,10 +102,11 @@ export default function ToolsPage() {
                     <div className="flex items-center gap-3 mb-2 flex-wrap">
                       <h2 className="text-2xl font-bold text-slate-900">{tool.name}</h2>
                       {tool.badge && (
-                        <span className={`px-3 py-1 text-white text-xs font-bold rounded-full ${tool.badge === 'New'
+                        <span className={`px-3 py-1 text-white text-xs font-bold rounded-full ${
+                          tool.badge === 'New'
                             ? 'bg-gradient-to-r from-green-400 to-emerald-500'
                             : 'bg-gradient-to-r from-amber-400 to-orange-500'
-                          }`}>
+                        }`}>
                           {tool.badge}
                         </span>
                       )}
@@ -140,7 +157,7 @@ export default function ToolsPage() {
               </div>
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-1">
-                  <h3 className="text-lg font-bold text-slate-700">Flow Extension</h3>
+                  <h3 className="text-lg font-bold text-slate-700">Next Project</h3>
                   <span className="px-2 py-0.5 bg-cyan-100 text-cyan-700 text-xs font-semibold rounded-full">
                     Coming Soon
                   </span>
