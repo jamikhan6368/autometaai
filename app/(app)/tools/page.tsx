@@ -53,7 +53,7 @@ const TOOLS: Tool[] = [
     name: 'Labs Flow X',
     description: 'The ultimate automation suite for Google Labs (ImageFX). Features intelligent batch processing, smart delays (10s/50s), network protection, and a premium titanium interface.',
     type: 'extension',
-    downloadUrl: 'https://drive.usercontent.google.com/u/0/uc?id=1QHY5DhdD3aeXFpN0I8nxMuczD44rPd_G&export=download',
+    downloadUrl: 'https://drive.usercontent.google.com/u/0/uc?id=1ewy705mJoUdLxfrUkjYP2Ij_icI1G0mM&export=download',
     icon: '🧪',
     features: [
       'Batch Prompt Queue',
