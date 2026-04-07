@@ -87,12 +87,26 @@ export async function POST(request: NextRequest) {
     const transparentBackground = formData.get('transparentBackground') === 'true';
     const prohibitedWords = (formData.get('prohibitedWords') as string) || '';
 
+    // ============================================================
+    // SMART TARGET LENGTH CALCULATION
+    // ============================================================
+    let requiredSuffix = "";
+    if (transparentBackground) requiredSuffix = " isolated on transparent background";
+    else if (whiteBackground) requiredSuffix = " isolated on white background";
+
+    let aiTargetLength = titleLength;
+    if (requiredSuffix) {
+        // Agar suffix lagana hai, toh AI ko chota target do (total limit se suffix minus kar do)
+        aiTargetLength = titleLength - requiredSuffix.length;
+        if (aiTargetLength < 15) aiTargetLength = 15; // Minimum 15 characters AI ko zaroor do
+    }
+
     const results: BatchResult[] = [];
     let successfulProcessing = 0;
 
     const categories = `1. Animals, 2. Buildings and Architecture, 3. Business, 4. Drinks, 5. The Environment, 6. States of Mind, 7. Food, 8. Graphic Resources, 9. Hobbies and Leisure, 10. Industry, 11. Landscape, 12. Lifestyle, 13. People, 14. Plants and Flowers, 15. Culture and Religion, 16. Science, 17. Social Issues, 18. Sports, 19. Technology, 20. Transport, 21. Travel`;
 
-    // Process images in parallel (up to 5 at a time to avoid overwhelming the API)
+    // Process images in parallel
     const processInBatches = async (files: { file: File; originalName: string }[], batchSize: number = 5) => {
       for (let i = 0; i < files.length; i += batchSize) {
         const batch = files.slice(i, i + batchSize);
@@ -127,27 +141,30 @@ export async function POST(request: NextRequest) {
             const isVideo = file.type.startsWith('video/') || !!originalName.match(/\.(mp4|mov|avi|webm)$/i);
             const isSvg = originalName.toLowerCase().endsWith('.svg') || file.type === 'image/svg+xml';
 
+            // Agar background on hai, toh custom prompt mein context bhej do
+            let contextualPrompt = customPrompt;
+            if (transparentBackground) contextualPrompt += " Note: Image has transparent background.";
+            else if (whiteBackground) contextualPrompt += " Note: Image has white background.";
+
             // Use Gemini for metadata generation
             const geminiResult = await generateMetadataWithGemini(file, {
-              titleLength,
+              titleLength: aiTargetLength, // Yahan humne AI ko chota target diya hai
               keywordCount,
               singleWordKeywords,
               isSilhouette,
-              customPrompt,
-              whiteBackground,
-              transparentBackground,
+              customPrompt: contextualPrompt,
+              whiteBackground: false, // AI ko false bhejo taa ke wo khud suffix na lagaye
+              transparentBackground: false, // AI ko false bhejo taa ke wo khud suffix na lagaye
               prohibitedWords,
               isVideo,
               isSvg,
             });
 
             let title = (geminiResult.title || '').replace(/[^\w\s]/g, '').trim();
-            let keywords = (geminiResult.keywords || '').replace(/[^\w\s,]/g, '').trim();
-            const categoryId = geminiResult.category_id || 1;
 
-            // Validate and trim
-            if (title.length > titleLength) {
-              let truncatedTitle = title.slice(0, titleLength);
+            // AI ke response ko pehle safe trim karo (bina word toray)
+            if (title.length > aiTargetLength) {
+              let truncatedTitle = title.slice(0, aiTargetLength);
               let lastSpaceIndex = truncatedTitle.lastIndexOf(" ");
               if (lastSpaceIndex > 0) {
                 title = truncatedTitle.slice(0, lastSpaceIndex);
@@ -155,6 +172,18 @@ export async function POST(request: NextRequest) {
                 title = truncatedTitle;
               }
             }
+
+            // Agar AI ne ghalti se suffix khud lagaya ho toh usay hata do
+            title = title.replace(/isolated on transparent background|isolated on white background/gi, "").trim();
+
+            // Ab apna mukammal Suffix exactly aakhir mein jorh do!
+            if (requiredSuffix) {
+              title = title + requiredSuffix;
+            }
+
+            // Keywords logic
+            let keywords = (geminiResult.keywords || '').replace(/[^\w\s,]/g, '').trim();
+            const categoryId = geminiResult.category_id || 1;
 
             const keywordList = keywords.split(',').map((k: string) => k.trim().toLowerCase()).filter((k: string) => k);
             if (keywordList.length > keywordCount) {
