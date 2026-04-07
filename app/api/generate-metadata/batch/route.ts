@@ -124,7 +124,7 @@ export async function POST(request: NextRequest) {
             }
 
             // Detect file types
-            const isVideo = file.type.startsWith('video/') || !!originalName.match(/\\.(mp4|mov|avi|webm)$/i);
+            const isVideo = file.type.startsWith('video/') || !!originalName.match(/\.(mp4|mov|avi|webm)$/i);
             const isSvg = originalName.toLowerCase().endsWith('.svg') || file.type === 'image/svg+xml';
 
             // Use Gemini for metadata generation
@@ -147,7 +147,13 @@ export async function POST(request: NextRequest) {
 
             // Validate and trim
             if (title.length > titleLength) {
-              title = title.slice(0, titleLength);
+              let truncatedTitle = title.slice(0, titleLength);
+              let lastSpaceIndex = truncatedTitle.lastIndexOf(" ");
+              if (lastSpaceIndex > 0) {
+                title = truncatedTitle.slice(0, lastSpaceIndex);
+              } else {
+                title = truncatedTitle;
+              }
             }
 
             const keywordList = keywords.split(',').map((k: string) => k.trim().toLowerCase()).filter((k: string) => k);
